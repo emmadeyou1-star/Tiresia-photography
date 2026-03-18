@@ -1,377 +1,24 @@
-import { useState, useEffect } from "react";
-
-// ─── Storage helpers ───
-const DIARY_KEY = "tiresia:diary-entries";
-const PHOTOS_KEY = "tiresia:photo-album";
-
-async function loadData(key, fallback) {
-  try {
-    const r = await window.storage.get(key);
-    return r ? JSON.parse(r.value) : fallback;
-  } catch { return fallback; }
-}
-
-async function saveData(key, data) {
-  try { await window.storage.set(key, JSON.stringify(data)); }
-  catch (e) { console.error("Storage error:", e); }
-}
-
-const SEED_DIARY = [
-  { id: "d1", date: "2026-03-18", mood: "☀️", title: "春天快到了", content: "今天阳光很好，下午去公园散了步，拍了几张花的照片。感觉冬天终于要过去了。" } 
-;
-
-const SEED_PHOTOS = [
-  { id: "p1", src: "https://picsum.photos/600/400?random=11", caption: "午后的光", date: "2026-03-17" },
-  { id: "p2", src: "https://picsum.photos/400/600?random=22", caption: "街角咖啡店", date: "2026-03-16" },
-  { id: "p3", src: "https://picsum.photos/600/400?random=33", caption: "远山", date: "2026-03-15" },
-  { id: "p4", src: "https://picsum.photos/400/500?random=44", caption: "老巷子", date: "2026-03-14" },
-  { id: "p5", src: "https://picsum.photos/600/400?random=55", caption: "雨后", date: "2026-03-13" },
-  { id: "p6", src: "https://picsum.photos/500/400?random=66", caption: "窗台的花", date: "2026-03-12" },
-];
-
-const MOODS = ["☀️", "🌤️", "☁️", "🌧️", "🌙", "⭐", "🍃", "🔥", "❄️", "🌸"];
-
-function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
-function formatDate(d) { const dt = new Date(d + "T00:00:00"); return `${dt.getMonth() + 1}月${dt.getDate()}日`; }
-function todayStr() { return new Date().toISOString().slice(0, 10); }
-
-// ─── Main App ───
-export default function App() {
-  const [page, setPage] = useState("home");
-  const [diary, setDiary] = useState(null);
-  const [photos, setPhotos] = useState(null);
-  const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    (async () => {
-      const d = await loadData(DIARY_KEY, SEED_DIARY);
-      const p = await loadData(PHOTOS_KEY, SEED_PHOTOS);
-      setDiary(d); setPhotos(p); setLoaded(true);
-    })();
-  }, []);
-
-  const saveDiary = async (entries) => { setDiary(entries); await saveData(DIARY_KEY, entries); };
-  const savePhotos = async (items) => { setPhotos(items); await saveData(PHOTOS_KEY, items); };
-
-  if (!loaded) return (
-    <div style={{ ...S.app, display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh" }}>
-      <p style={{ fontSize: 16, color: "#8a7090", letterSpacing: "0.25em", fontFamily: "'Cormorant Garamond', Georgia, serif" }}>TIRESIA</p>
-    </div>
-  );
-
-  return (
-    <div style={S.app}>
-      {page === "home" && <HomePage onNav={setPage} diary={diary} photos={photos} />}
-      {page === "diary" && <DiaryPage diary={diary} saveDiary={saveDiary} onBack={() => setPage("home")} />}
-      {page === "album" && <AlbumPage photos={photos} savePhotos={savePhotos} onBack={() => setPage("home")} />}
-    </div>
-  );
-}
-
-// ─── Home ───
-function HomePage({ onNav, diary, photos }) {
-  const latestDiary = diary?.[0];
-  const previewPhotos = photos?.slice(0, 3) || [];
-
-  return (
-    <div style={S.page}>
-      <header style={S.homeHeader}>
-        <div style={S.headerAccent} />
-        <p style={S.brandSub}>Fragments of Light</p>
-        <h1 style={S.siteName}>TIRESIA</h1>
-        <p style={S.siteTagline}>记录每一天的光与影</p>
-        <div style={S.headerAccent} />
-      </header>
-
-      <div style={S.homeCards}>
-        <div style={S.glassCard} className="glass-card" onClick={() => onNav("diary")}>
-          <div style={S.cardTop}>
-            <div style={S.cardLabel}>日记本</div>
-            <div style={S.cardCount}>{diary?.length || 0} 篇</div>
-          </div>
-          {latestDiary && (
-            <div style={S.latestPreview}>
-              <span style={{ fontSize: 20 }}>{latestDiary.mood}</span>
-              <div style={{ flex: 1 }}>
-                <div style={S.previewTitle}>{latestDiary.title}</div>
-                <div style={S.previewDateText}>{formatDate(latestDiary.date)}</div>
-              </div>
-            </div>
-          )}
-          <div style={S.cardArrow}>→</div>
-        </div>
-
-        <div style={S.glassCard} className="glass-card" onClick={() => onNav("album")}>
-          <div style={S.cardTop}>
-            <div style={S.cardLabel}>照片墙</div>
-            <div style={S.cardCount}>{photos?.length || 0} 张</div>
-          </div>
-          <div style={S.photoStrip}>
-            {previewPhotos.map((p) => (
-              <img key={p.id} src={p.src} alt="" style={S.stripThumb} />
-            ))}
-          </div>
-          <div style={S.cardArrow}>→</div>
-        </div>
-      </div>
-
-      <footer style={S.homeFooter}>
-        <div style={S.footerLine} />
-        <p style={S.footerText}>今天是 {formatDate(todayStr())}，记得记录你的一天</p>
-      </footer>
-    </div>
-  );
-}
-
-// ─── Diary ───
-function DiaryPage({ diary, saveDiary, onBack }) {
-  const [composing, setComposing] = useState(false);
-  const [viewing, setViewing] = useState(null);
-  const [form, setForm] = useState({ title: "", content: "", mood: "☀️", date: todayStr() });
-
-  const handleSave = () => {
-    if (!form.title.trim() && !form.content.trim()) return;
-    const entry = { id: uid(), ...form };
-    const updated = [entry, ...diary].sort((a, b) => b.date.localeCompare(a.date));
-    saveDiary(updated);
-    setComposing(false);
-    setForm({ title: "", content: "", mood: "☀️", date: todayStr() });
-  };
-
-  const handleDelete = (id) => { saveDiary(diary.filter((d) => d.id !== id)); setViewing(null); };
-
-  return (
-    <div style={S.page}>
-      <SubHeader title="日记本" onBack={onBack} />
-      {!composing && !viewing && (
-        <>
-          <button style={S.fab} className="fab-btn" onClick={() => setComposing(true)}>+ 写日记</button>
-          <div style={S.diaryList}>
-            {diary.length === 0 && <p style={S.emptyHint}>还没有日记，写下第一篇吧</p>}
-            {diary.map((entry, i) => (
-              <div key={entry.id} style={{ ...S.diaryCard, animationDelay: `${i * 0.06}s` }} className="diary-card" onClick={() => setViewing(entry)}>
-                <div style={S.diaryLeft}>
-                  <span style={{ fontSize: 22 }}>{entry.mood}</span>
-                  <span style={S.diaryDateSmall}>{formatDate(entry.date)}</span>
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <h4 style={S.diaryTitle}>{entry.title}</h4>
-                  <p style={S.diarySnippet}>{entry.content.slice(0, 60)}{entry.content.length > 60 ? "…" : ""}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-      {composing && (
-        <div style={S.composeCard} className="glass-card">
-          <div style={S.composeRow}>
-            <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} style={S.dateInput} />
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {MOODS.map((m) => (
-                <span key={m} style={{ fontSize: 20, cursor: "pointer", transition: "all 0.15s", opacity: form.mood === m ? 1 : 0.3, transform: form.mood === m ? "scale(1.3)" : "scale(1)" }} onClick={() => setForm({ ...form, mood: m })}>{m}</span>
-              ))}
-            </div>
-          </div>
-          <input style={S.inputField} placeholder="标题…" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-          <textarea style={{ ...S.inputField, resize: "vertical", lineHeight: 1.9, minHeight: 160 }} placeholder="今天发生了什么…" value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} />
-          <div style={S.actions}>
-            <button style={S.btnGhost} onClick={() => setComposing(false)}>取消</button>
-            <button style={S.btnSolid} onClick={handleSave}>保存</button>
-          </div>
-        </div>
-      )}
-      {viewing && (
-        <div style={S.composeCard} className="glass-card">
-          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24, paddingBottom: 20, borderBottom: "1px solid rgba(120,80,140,0.12)" }}>
-            <span style={{ fontSize: 32 }}>{viewing.mood}</span>
-            <div>
-              <h2 style={{ fontSize: 22, fontWeight: 400, margin: 0, color: "#3a2a3e", fontFamily: "'Noto Serif SC', Georgia, serif", letterSpacing: "0.04em" }}>{viewing.title}</h2>
-              <p style={{ fontSize: 13, color: "#9a85a0", marginTop: 4 }}>{formatDate(viewing.date)}</p>
-            </div>
-          </div>
-          <p style={{ fontSize: 15, lineHeight: 2.1, color: "#5a4560", whiteSpace: "pre-wrap", letterSpacing: "0.02em", fontFamily: "'Noto Serif SC', Georgia, serif" }}>{viewing.content}</p>
-          <div style={S.actions}>
-            <button style={S.btnGhost} onClick={() => setViewing(null)}>返回</button>
-            <button style={{ ...S.btnGhost, color: "#a05050" }} onClick={() => handleDelete(viewing.id)}>删除</button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Album ───
-function AlbumPage({ photos, savePhotos, onBack }) {
-  const [lightbox, setLightbox] = useState(null);
-  const [adding, setAdding] = useState(false);
-  const [newUrl, setNewUrl] = useState("");
-  const [newCaption, setNewCaption] = useState("");
-
-  const addPhoto = () => {
-    if (!newUrl.trim()) return;
-    const photo = { id: uid(), src: newUrl.trim(), caption: newCaption.trim() || "未命名", date: todayStr() };
-    savePhotos([photo, ...photos]);
-    setNewUrl(""); setNewCaption(""); setAdding(false);
-  };
-
-  const deletePhoto = (id) => { savePhotos(photos.filter((p) => p.id !== id)); setLightbox(null); };
-
-  return (
-    <div style={S.page}>
-      <SubHeader title="照片墙" onBack={onBack} />
-      <button style={S.fab} className="fab-btn" onClick={() => setAdding(!adding)}>+ 添加照片</button>
-      {adding && (
-        <div style={{ ...S.composeCard, marginBottom: 24 }} className="glass-card">
-          <input style={S.inputField} placeholder="图片链接 (URL)" value={newUrl} onChange={(e) => setNewUrl(e.target.value)} />
-          <input style={S.inputField} placeholder="描述（可选）" value={newCaption} onChange={(e) => setNewCaption(e.target.value)} />
-          <div style={S.actions}>
-            <button style={S.btnGhost} onClick={() => setAdding(false)}>取消</button>
-            <button style={S.btnSolid} onClick={addPhoto}>添加</button>
-          </div>
-        </div>
-      )}
-      <div style={S.albumGrid}>
-        {photos.map((p, i) => (
-          <div key={p.id} style={{ ...S.albumItem, animationDelay: `${i * 0.05}s` }} className="album-item" onClick={() => setLightbox(p)}>
-            <img src={p.src} alt={p.caption} style={S.albumImg} />
-            <div className="album-overlay" style={S.albumOverlay}>
-              <span style={{ color: "#fff", fontSize: 12, letterSpacing: "0.06em" }}>{p.caption}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-      {lightbox && (
-        <div style={S.lightbox} onClick={() => setLightbox(null)}>
-          <div style={S.lightboxInner} onClick={(e) => e.stopPropagation()}>
-            <img src={lightbox.src} alt={lightbox.caption} style={{ width: "100%", maxHeight: "60vh", objectFit: "cover", display: "block" }} />
-            <div style={{ padding: "18px 22px 10px" }}>
-              <p style={{ fontSize: 17, margin: 0, color: "#3a2a3e", fontFamily: "'Noto Serif SC', Georgia, serif" }}>{lightbox.caption}</p>
-              <p style={{ fontSize: 12, color: "#9a85a0", marginTop: 4 }}>{formatDate(lightbox.date)}</p>
-            </div>
-            <div style={{ ...S.actions, padding: "0 22px 18px" }}>
-              <button style={S.btnGhost} onClick={() => setLightbox(null)}>关闭</button>
-              <button style={{ ...S.btnGhost, color: "#a05050" }} onClick={() => deletePhoto(lightbox.id)}>删除</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function SubHeader({ title, onBack }) {
-  return (
-    <div style={S.subHeader}>
-      <button style={S.backBtn} className="back-btn" onClick={onBack}>← 返回</button>
-      <h2 style={S.subTitle}>{title}</h2>
-      <div style={{ width: 60 }} />
-    </div>
-  );
-}
-
-// ─── Glass base matching the painting's warm parchment tone ───
-const glass = {
-  background: "rgba(255,252,248,0.72)",
-  border: "1px solid rgba(160,120,180,0.15)",
-  borderRadius: 14,
-  backdropFilter: "blur(16px)",
-  WebkitBackdropFilter: "blur(16px)",
-  boxShadow: "0 2px 20px rgba(100,60,120,0.06)",
-};
-
-const S = {
-  app: {
-    position: "relative", zIndex: 1,
-    fontFamily: "'Noto Serif SC', Georgia, serif",
-    color: "#3a2a3e", minHeight: "100vh",
-    maxWidth: 720, margin: "0 auto", padding: "0 20px",
-  },
-  page: { paddingBottom: 60 },
-
-  homeHeader: { textAlign: "center", padding: "72px 0 48px" },
-  headerAccent: { width: 40, height: 1, background: "linear-gradient(to right, transparent, rgba(140,90,160,0.35), transparent)", margin: "0 auto 20px" },
-  brandSub: { fontSize: 11, letterSpacing: "0.35em", textTransform: "uppercase", color: "#9a85a0", marginBottom: 12, fontFamily: "'Cormorant Garamond', Georgia, serif" },
-  siteName: {
-    fontFamily: "'Cormorant Garamond', Georgia, serif",
-    fontSize: "clamp(38px, 8vw, 64px)", fontWeight: 300,
-    letterSpacing: "0.18em", margin: "0 0 12px", color: "#3a2a3e",
-    textShadow: "0 2px 30px rgba(140,90,160,0.08)",
-  },
-  siteTagline: { fontSize: 14, color: "#9a85a0", letterSpacing: "0.2em", fontStyle: "italic", marginBottom: 20 },
-
-  homeCards: { display: "flex", flexDirection: "column", gap: 16, marginTop: 8 },
-  glassCard: { ...glass, padding: "22px 26px", cursor: "pointer", position: "relative", transition: "all 0.3s ease", overflow: "hidden" },
-  cardTop: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 },
-  cardLabel: { fontSize: 17, fontWeight: 400, letterSpacing: "0.06em", color: "#3a2a3e" },
-  cardCount: { fontSize: 12, color: "#9a85a0", letterSpacing: "0.1em" },
-  latestPreview: { display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 10, background: "rgba(140,90,160,0.04)" },
-  previewTitle: { fontSize: 14, color: "#5a4560" },
-  previewDateText: { fontSize: 11, color: "#b0a0b5", marginTop: 2 },
-  cardArrow: { position: "absolute", right: 24, top: 22, fontSize: 18, color: "#c0b0c8", transition: "color 0.3s" },
-  photoStrip: { display: "flex", gap: 8, overflow: "hidden" },
-  stripThumb: { width: 72, height: 50, objectFit: "cover", borderRadius: 6 },
-
-  homeFooter: { textAlign: "center", padding: "56px 0 20px" },
-  footerLine: { width: 20, height: 1, background: "rgba(140,90,160,0.2)", margin: "0 auto 16px" },
-  footerText: { fontSize: 12, color: "#b0a0b5", letterSpacing: "0.12em" },
-
-  subHeader: {
-    display: "flex", alignItems: "center", justifyContent: "space-between",
-    padding: "24px 0 16px", borderBottom: "1px solid rgba(140,90,160,0.1)",
-    marginBottom: 24, position: "sticky", top: 0,
-    background: "rgba(245,240,235,0.75)", backdropFilter: "blur(20px)",
-    WebkitBackdropFilter: "blur(20px)", zIndex: 10,
-  },
-  backBtn: { background: "none", border: "none", fontSize: 13, color: "#9a85a0", cursor: "pointer", fontFamily: "inherit", padding: "4px 0" },
-  subTitle: { fontSize: 19, fontWeight: 400, letterSpacing: "0.12em", margin: 0, fontFamily: "'Cormorant Garamond', Georgia, serif", color: "#3a2a3e" },
-
-  fab: {
-    display: "inline-block", background: "rgba(140,90,160,0.1)", color: "#7a5090",
-    border: "1px solid rgba(140,90,160,0.2)", borderRadius: 100,
-    padding: "10px 26px", fontSize: 13, fontFamily: "inherit",
-    cursor: "pointer", letterSpacing: "0.08em", marginBottom: 24, transition: "all 0.25s",
-  },
-
-  diaryList: { display: "flex", flexDirection: "column", gap: 10 },
-  emptyHint: { textAlign: "center", color: "#b0a0b5", marginTop: 60, fontSize: 14, letterSpacing: "0.1em" },
-  diaryCard: { ...glass, display: "flex", gap: 16, padding: "18px 20px", cursor: "pointer", transition: "all 0.25s ease", animation: "fadeInUp 0.45s ease both" },
-  diaryLeft: { display: "flex", flexDirection: "column", alignItems: "center", gap: 4, minWidth: 48 },
-  diaryDateSmall: { fontSize: 11, color: "#b0a0b5", whiteSpace: "nowrap" },
-  diaryTitle: { fontSize: 15, fontWeight: 400, margin: "0 0 4px", letterSpacing: "0.03em", color: "#3a2a3e" },
-  diarySnippet: { fontSize: 13, color: "#8a7590", margin: 0, lineHeight: 1.7 },
-
-  composeCard: { ...glass, padding: 26 },
-  composeRow: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, marginBottom: 18 },
-  dateInput: { fontFamily: "inherit", fontSize: 13, padding: "7px 10px", border: "1px solid rgba(140,90,160,0.15)", borderRadius: 8, background: "rgba(255,252,248,0.6)", color: "#5a4560" },
-  inputField: { width: "100%", fontFamily: "inherit", fontSize: 15, padding: "12px 14px", border: "1px solid rgba(140,90,160,0.12)", borderRadius: 10, background: "rgba(255,252,248,0.5)", color: "#3a2a3e", outline: "none", marginBottom: 12, letterSpacing: "0.02em" },
-  actions: { display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 16 },
-  btnSolid: { background: "rgba(140,90,160,0.12)", color: "#7a5090", border: "1px solid rgba(140,90,160,0.25)", borderRadius: 10, padding: "10px 28px", fontSize: 14, fontFamily: "inherit", cursor: "pointer", letterSpacing: "0.05em", transition: "all 0.2s" },
-  btnGhost: { background: "rgba(255,252,248,0.5)", color: "#8a7590", border: "1px solid rgba(140,90,160,0.12)", borderRadius: 10, padding: "10px 20px", fontSize: 14, fontFamily: "inherit", cursor: "pointer", transition: "all 0.2s" },
-
-  albumGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: 10 },
-  albumItem: { position: "relative", borderRadius: 10, overflow: "hidden", cursor: "pointer", aspectRatio: "1", animation: "fadeInUp 0.45s ease both", boxShadow: "0 2px 12px rgba(100,60,120,0.08)" },
-  albumImg: { width: "100%", height: "100%", objectFit: "cover", display: "block", transition: "transform 0.6s cubic-bezier(0.25,0.46,0.45,0.94)" },
-  albumOverlay: { position: "absolute", inset: 0, background: "linear-gradient(0deg, rgba(50,30,60,0.55) 0%, transparent 55%)", display: "flex", alignItems: "flex-end", padding: 14, opacity: 0, transition: "opacity 0.35s" },
-
-  lightbox: { position: "fixed", inset: 0, zIndex: 100, background: "rgba(50,30,60,0.85)", display: "flex", justifyContent: "center", alignItems: "center", padding: 20, backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)" },
-  lightboxInner: { ...glass, overflow: "hidden", maxWidth: 540, width: "100%", background: "rgba(255,252,248,0.95)" },
-};
-
-const sheet = document.createElement("style");
-sheet.textContent = `
-  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Noto+Serif+SC:wght@300;400;500&display=swap');
-  * { box-sizing: border-box; }
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TIRESIA — Fragments of Light</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Noto+Serif+SC:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
-    margin: 0;
+    font-family: 'Noto Serif SC', Georgia, serif;
+    color: #3a2a3e;
+    min-height: 100vh;
     background: #f5f0eb;
     background-image: url('./bg.jpg');
     background-size: cover;
     background-position: center top;
     background-attachment: fixed;
     background-repeat: no-repeat;
-    min-height: 100vh;
   }
 
   body::before {
@@ -385,31 +32,528 @@ sheet.textContent = `
     pointer-events: none;
   }
 
+  #app {
+    position: relative;
+    z-index: 1;
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 0 20px 60px;
+  }
+
   @keyframes fadeInUp {
     from { opacity: 0; transform: translateY(18px); }
     to { opacity: 1; transform: translateY(0); }
   }
 
-  .glass-card:hover {
-    border-color: rgba(140,90,160,0.22) !important;
-    background: rgba(255,252,248,0.82) !important;
-    box-shadow: 0 4px 24px rgba(100,60,120,0.1) !important;
+  /* ─── Glass card ─── */
+  .glass {
+    background: rgba(255,252,248,0.72);
+    border: 1px solid rgba(160,120,180,0.15);
+    border-radius: 14px;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 2px 20px rgba(100,60,120,0.06);
+    transition: all 0.3s ease;
   }
-  .diary-card:hover {
-    border-color: rgba(140,90,160,0.2) !important;
-    background: rgba(255,252,248,0.82) !important;
+  .glass:hover, .glass-hover:hover {
+    border-color: rgba(140,90,160,0.22);
+    background: rgba(255,252,248,0.82);
+    box-shadow: 0 4px 24px rgba(100,60,120,0.1);
   }
-  .fab-btn:hover {
-    background: rgba(140,90,160,0.18) !important;
-    border-color: rgba(140,90,160,0.35) !important;
-  }
-  .back-btn:hover { color: #7a5090 !important; }
-  .album-item:hover img { transform: scale(1.06) !important; }
-  .album-item:hover .album-overlay { opacity: 1 !important; }
 
-  input::placeholder, textarea::placeholder { color: #c0b0c8; }
+  /* ─── Header ─── */
+  .home-header {
+    text-align: center;
+    padding: 72px 0 48px;
+  }
+  .header-accent {
+    width: 40px; height: 1px;
+    background: linear-gradient(to right, transparent, rgba(140,90,160,0.35), transparent);
+    margin: 0 auto 20px;
+  }
+  .brand-sub {
+    font-size: 11px; letter-spacing: 0.35em; text-transform: uppercase;
+    color: #9a85a0; margin-bottom: 12px;
+    font-family: 'Cormorant Garamond', Georgia, serif;
+  }
+  .site-name {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: clamp(38px, 8vw, 64px); font-weight: 300;
+    letter-spacing: 0.18em; margin: 0 0 12px; color: #3a2a3e;
+    text-shadow: 0 2px 30px rgba(140,90,160,0.08);
+  }
+  .site-tagline {
+    font-size: 14px; color: #9a85a0; letter-spacing: 0.2em;
+    font-style: italic; margin-bottom: 20px;
+  }
+
+  /* ─── Home cards ─── */
+  .home-cards { display: flex; flex-direction: column; gap: 16px; margin-top: 8px; }
+  .home-card {
+    padding: 22px 26px; cursor: pointer; position: relative; overflow: hidden;
+  }
+  .card-top {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;
+  }
+  .card-label { font-size: 17px; font-weight: 400; letter-spacing: 0.06em; color: #3a2a3e; }
+  .card-count { font-size: 12px; color: #9a85a0; letter-spacing: 0.1em; }
+  .card-arrow {
+    position: absolute; right: 24px; top: 22px; font-size: 18px;
+    color: #c0b0c8; transition: color 0.3s;
+  }
+  .home-card:hover .card-arrow { color: #7a5090; }
+  .latest-preview {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px; border-radius: 10px;
+    background: rgba(140,90,160,0.04);
+  }
+  .preview-title { font-size: 14px; color: #5a4560; }
+  .preview-date { font-size: 11px; color: #b0a0b5; margin-top: 2px; }
+  .photo-strip { display: flex; gap: 8px; overflow: hidden; }
+  .photo-strip img {
+    width: 72px; height: 50px; object-fit: cover; border-radius: 6px;
+  }
+
+  /* ─── Footer ─── */
+  .home-footer { text-align: center; padding: 56px 0 20px; }
+  .footer-line { width: 20px; height: 1px; background: rgba(140,90,160,0.2); margin: 0 auto 16px; }
+  .footer-text { font-size: 12px; color: #b0a0b5; letter-spacing: 0.12em; }
+
+  /* ─── Sub header ─── */
+  .sub-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 24px 0 16px; border-bottom: 1px solid rgba(140,90,160,0.1);
+    margin-bottom: 24px; position: sticky; top: 0;
+    background: rgba(245,240,235,0.75); backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px); z-index: 10;
+  }
+  .back-btn {
+    background: none; border: none; font-size: 13px; color: #9a85a0;
+    cursor: pointer; font-family: inherit; padding: 4px 0;
+    transition: color 0.2s;
+  }
+  .back-btn:hover { color: #7a5090; }
+  .sub-title {
+    font-size: 19px; font-weight: 400; letter-spacing: 0.12em;
+    font-family: 'Cormorant Garamond', Georgia, serif; color: #3a2a3e;
+  }
+
+  /* ─── FAB ─── */
+  .fab {
+    display: inline-block; background: rgba(140,90,160,0.1); color: #7a5090;
+    border: 1px solid rgba(140,90,160,0.2); border-radius: 100px;
+    padding: 10px 26px; font-size: 13px; font-family: inherit;
+    cursor: pointer; letter-spacing: 0.08em; margin-bottom: 24px;
+    transition: all 0.25s;
+  }
+  .fab:hover {
+    background: rgba(140,90,160,0.18);
+    border-color: rgba(140,90,160,0.35);
+  }
+
+  /* ─── Diary list ─── */
+  .diary-list { display: flex; flex-direction: column; gap: 10px; }
+  .empty-hint { text-align: center; color: #b0a0b5; margin-top: 60px; font-size: 14px; letter-spacing: 0.1em; }
+  .diary-card {
+    display: flex; gap: 16px; padding: 18px 20px; cursor: pointer;
+    animation: fadeInUp 0.45s ease both;
+  }
+  .diary-left {
+    display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 48px;
+  }
+  .diary-mood { font-size: 22px; }
+  .diary-date-small { font-size: 11px; color: #b0a0b5; white-space: nowrap; }
+  .diary-title { font-size: 15px; font-weight: 400; margin: 0 0 4px; letter-spacing: 0.03em; color: #3a2a3e; }
+  .diary-snippet { font-size: 13px; color: #8a7590; margin: 0; line-height: 1.7; }
+
+  /* ─── Compose / Detail ─── */
+  .compose-card { padding: 26px; }
+  .compose-row {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 18px;
+  }
+  .date-input {
+    font-family: inherit; font-size: 13px; padding: 7px 10px;
+    border: 1px solid rgba(140,90,160,0.15); border-radius: 8px;
+    background: rgba(255,252,248,0.6); color: #5a4560;
+  }
+  .mood-picker { display: flex; gap: 6px; flex-wrap: wrap; }
+  .mood-option {
+    font-size: 20px; cursor: pointer; transition: all 0.15s;
+    opacity: 0.3; display: inline-block;
+  }
+  .mood-option.active { opacity: 1; transform: scale(1.3); }
+  .input-field {
+    width: 100%; font-family: inherit; font-size: 15px; padding: 12px 14px;
+    border: 1px solid rgba(140,90,160,0.12); border-radius: 10px;
+    background: rgba(255,252,248,0.5); color: #3a2a3e;
+    outline: none; margin-bottom: 12px; letter-spacing: 0.02em;
+  }
+  .input-field::placeholder { color: #c0b0c8; }
+  textarea.input-field { resize: vertical; line-height: 1.9; min-height: 160px; }
+  .actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+  .btn-solid {
+    background: rgba(140,90,160,0.12); color: #7a5090;
+    border: 1px solid rgba(140,90,160,0.25); border-radius: 10px;
+    padding: 10px 28px; font-size: 14px; font-family: inherit;
+    cursor: pointer; letter-spacing: 0.05em; transition: all 0.2s;
+  }
+  .btn-ghost {
+    background: rgba(255,252,248,0.5); color: #8a7590;
+    border: 1px solid rgba(140,90,160,0.12); border-radius: 10px;
+    padding: 10px 20px; font-size: 14px; font-family: inherit;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .btn-danger { color: #a05050; }
+
+  /* ─── Detail ─── */
+  .detail-header {
+    display: flex; align-items: center; gap: 16px;
+    margin-bottom: 24px; padding-bottom: 20px;
+    border-bottom: 1px solid rgba(120,80,140,0.12);
+  }
+  .detail-mood { font-size: 32px; }
+  .detail-title {
+    font-size: 22px; font-weight: 400; color: #3a2a3e;
+    font-family: 'Noto Serif SC', Georgia, serif; letter-spacing: 0.04em;
+  }
+  .detail-date { font-size: 13px; color: #9a85a0; margin-top: 4px; }
+  .detail-content {
+    font-size: 15px; line-height: 2.1; color: #5a4560;
+    white-space: pre-wrap; letter-spacing: 0.02em;
+    font-family: 'Noto Serif SC', Georgia, serif;
+  }
+
+  /* ─── Album ─── */
+  .album-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px;
+  }
+  .album-item {
+    position: relative; border-radius: 10px; overflow: hidden;
+    cursor: pointer; aspect-ratio: 1;
+    animation: fadeInUp 0.45s ease both;
+    box-shadow: 0 2px 12px rgba(100,60,120,0.08);
+  }
+  .album-item img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+    transition: transform 0.6s cubic-bezier(0.25,0.46,0.45,0.94);
+  }
+  .album-item:hover img { transform: scale(1.06); }
+  .album-overlay {
+    position: absolute; inset: 0;
+    background: linear-gradient(0deg, rgba(50,30,60,0.55) 0%, transparent 55%);
+    display: flex; align-items: flex-end; padding: 14px;
+    opacity: 0; transition: opacity 0.35s;
+  }
+  .album-item:hover .album-overlay { opacity: 1; }
+  .album-caption { color: rgba(255,255,255,0.9); font-size: 12px; letter-spacing: 0.06em; }
+
+  /* ─── Lightbox ─── */
+  .lightbox {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(50,30,60,0.85); display: flex;
+    justify-content: center; align-items: center; padding: 20px;
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  }
+  .lightbox-inner {
+    overflow: hidden; max-width: 540px; width: 100%;
+    background: rgba(255,252,248,0.95);
+  }
+  .lightbox-inner img {
+    width: 100%; max-height: 60vh; object-fit: cover; display: block;
+  }
+  .lightbox-info { padding: 18px 22px 10px; }
+  .lightbox-caption {
+    font-size: 17px; color: #3a2a3e;
+    font-family: 'Noto Serif SC', Georgia, serif;
+  }
+  .lightbox-date { font-size: 12px; color: #9a85a0; margin-top: 4px; }
+
+  /* ─── Page transitions ─── */
+  .page { animation: fadeInUp 0.35s ease both; }
+
+  /* ─── Hidden utility ─── */
+  .hidden { display: none !important; }
+
+  /* ─── Scrollbar ─── */
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: rgba(140,90,160,0.12); border-radius: 3px; }
-`;
-document.head.appendChild(sheet);
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+// ─── Data ───
+const DIARY_KEY = "tiresia_diary";
+const PHOTOS_KEY = "tiresia_photos";
+
+const SEED_DIARY = [
+  { id:"d1", date:"2026-03-17", mood:"☀️", title:"春天快到了", content:"今天阳光很好，下午去公园散了步，拍了几张花的照片。感觉冬天终于要过去了。" },
+  { id:"d2", date:"2026-03-16", mood:"🌧️", title:"读了一本好书", content:"下雨天待在家里，读完了《小王子》。每次读都有不同的感受，大人的世界真的很奇怪。" },
+  { id:"d3", date:"2026-03-15", mood:"🌙", title:"深夜想法", content:"夜深了还是睡不着，想了很多关于未来的事情。不过明天又是新的一天。" },
+];
+
+const SEED_PHOTOS = [
+  { id:"p1", src:"https://picsum.photos/600/400?random=11", caption:"午后的光", date:"2026-03-17" },
+  { id:"p2", src:"https://picsum.photos/400/600?random=22", caption:"街角咖啡店", date:"2026-03-16" },
+  { id:"p3", src:"https://picsum.photos/600/400?random=33", caption:"远山", date:"2026-03-15" },
+  { id:"p4", src:"https://picsum.photos/400/500?random=44", caption:"老巷子", date:"2026-03-14" },
+  { id:"p5", src:"https://picsum.photos/600/400?random=55", caption:"雨后", date:"2026-03-13" },
+  { id:"p6", src:"https://picsum.photos/500/400?random=66", caption:"窗台的花", date:"2026-03-12" },
+];
+
+const MOODS = ["☀️","🌤️","☁️","🌧️","🌙","⭐","🍃","🔥","❄️","🌸"];
+
+function load(key, fallback) {
+  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
+  catch { return fallback; }
+}
+function save(key, data) { localStorage.setItem(key, JSON.stringify(data)); }
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+function fmtDate(d) { const dt = new Date(d+"T00:00:00"); return `${dt.getMonth()+1}月${dt.getDate()}日`; }
+function today() { return new Date().toISOString().slice(0,10); }
+
+let diary = load(DIARY_KEY, SEED_DIARY);
+let photos = load(PHOTOS_KEY, SEED_PHOTOS);
+const app = document.getElementById("app");
+
+// ─── Render functions ───
+function renderHome() {
+  const latest = diary[0];
+  const preview = photos.slice(0,3);
+  app.innerHTML = `
+    <div class="page">
+      <header class="home-header">
+        <div class="header-accent"></div>
+        <p class="brand-sub">Fragments of Light</p>
+        <h1 class="site-name">TIRESIA</h1>
+        <p class="site-tagline">记录每一天的光与影</p>
+        <div class="header-accent"></div>
+      </header>
+      <div class="home-cards">
+        <div class="glass home-card" id="go-diary">
+          <div class="card-top">
+            <div class="card-label">日记本</div>
+            <div class="card-count">${diary.length} 篇</div>
+          </div>
+          ${latest ? `
+          <div class="latest-preview">
+            <span style="font-size:20px">${latest.mood}</span>
+            <div style="flex:1">
+              <div class="preview-title">${latest.title}</div>
+              <div class="preview-date">${fmtDate(latest.date)}</div>
+            </div>
+          </div>` : ""}
+          <div class="card-arrow">→</div>
+        </div>
+        <div class="glass home-card" id="go-album">
+          <div class="card-top">
+            <div class="card-label">照片墙</div>
+            <div class="card-count">${photos.length} 张</div>
+          </div>
+          <div class="photo-strip">
+            ${preview.map(p => `<img src="${p.src}" alt="">`).join("")}
+          </div>
+          <div class="card-arrow">→</div>
+        </div>
+      </div>
+      <footer class="home-footer">
+        <div class="footer-line"></div>
+        <p class="footer-text">今天是 ${fmtDate(today())}，记得记录你的一天</p>
+      </footer>
+    </div>`;
+  document.getElementById("go-diary").onclick = renderDiaryList;
+  document.getElementById("go-album").onclick = renderAlbum;
+}
+
+// ─── Diary List ───
+function renderDiaryList() {
+  app.innerHTML = `
+    <div class="page">
+      <div class="sub-header">
+        <button class="back-btn" id="back">← 返回</button>
+        <h2 class="sub-title">日记本</h2>
+        <div style="width:60px"></div>
+      </div>
+      <button class="fab" id="new-diary">+ 写日记</button>
+      <div class="diary-list" id="diary-list">
+        ${diary.length === 0 ? '<p class="empty-hint">还没有日记，写下第一篇吧</p>' :
+          diary.map((e,i) => `
+          <div class="glass diary-card" data-id="${e.id}" style="animation-delay:${i*0.06}s">
+            <div class="diary-left">
+              <span class="diary-mood">${e.mood}</span>
+              <span class="diary-date-small">${fmtDate(e.date)}</span>
+            </div>
+            <div style="flex:1;min-width:0">
+              <h4 class="diary-title">${e.title}</h4>
+              <p class="diary-snippet">${e.content.slice(0,60)}${e.content.length>60?"…":""}</p>
+            </div>
+          </div>`).join("")}
+      </div>
+    </div>`;
+  document.getElementById("back").onclick = renderHome;
+  document.getElementById("new-diary").onclick = renderDiaryCompose;
+  document.querySelectorAll(".diary-card").forEach(el => {
+    el.onclick = () => renderDiaryDetail(el.dataset.id);
+  });
+}
+
+// ─── Diary Compose ───
+function renderDiaryCompose() {
+  let mood = "☀️";
+  app.innerHTML = `
+    <div class="page">
+      <div class="sub-header">
+        <button class="back-btn" id="back">← 返回</button>
+        <h2 class="sub-title">写日记</h2>
+        <div style="width:60px"></div>
+      </div>
+      <div class="glass compose-card">
+        <div class="compose-row">
+          <input type="date" class="date-input" id="d-date" value="${today()}">
+          <div class="mood-picker" id="mood-picker">
+            ${MOODS.map(m => `<span class="mood-option ${m==="☀️"?"active":""}" data-mood="${m}">${m}</span>`).join("")}
+          </div>
+        </div>
+        <input class="input-field" id="d-title" placeholder="标题…">
+        <textarea class="input-field" id="d-content" placeholder="今天发生了什么…"></textarea>
+        <div class="actions">
+          <button class="btn-ghost" id="cancel">取消</button>
+          <button class="btn-solid" id="save">保存</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById("back").onclick = renderDiaryList;
+  document.getElementById("cancel").onclick = renderDiaryList;
+  document.querySelectorAll(".mood-option").forEach(el => {
+    el.onclick = () => {
+      mood = el.dataset.mood;
+      document.querySelectorAll(".mood-option").forEach(m => m.classList.remove("active"));
+      el.classList.add("active");
+    };
+  });
+  document.getElementById("save").onclick = () => {
+    const title = document.getElementById("d-title").value.trim();
+    const content = document.getElementById("d-content").value.trim();
+    if (!title && !content) return;
+    const entry = { id: uid(), date: document.getElementById("d-date").value, mood, title, content };
+    diary = [entry, ...diary].sort((a,b) => b.date.localeCompare(a.date));
+    save(DIARY_KEY, diary);
+    renderDiaryList();
+  };
+}
+
+// ─── Diary Detail ───
+function renderDiaryDetail(id) {
+  const e = diary.find(d => d.id === id);
+  if (!e) return renderDiaryList();
+  app.innerHTML = `
+    <div class="page">
+      <div class="sub-header">
+        <button class="back-btn" id="back">← 返回</button>
+        <h2 class="sub-title">日记</h2>
+        <div style="width:60px"></div>
+      </div>
+      <div class="glass compose-card">
+        <div class="detail-header">
+          <span class="detail-mood">${e.mood}</span>
+          <div>
+            <div class="detail-title">${e.title}</div>
+            <div class="detail-date">${fmtDate(e.date)}</div>
+          </div>
+        </div>
+        <p class="detail-content">${e.content}</p>
+        <div class="actions">
+          <button class="btn-ghost" id="back2">返回</button>
+          <button class="btn-ghost btn-danger" id="delete">删除</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById("back").onclick = renderDiaryList;
+  document.getElementById("back2").onclick = renderDiaryList;
+  document.getElementById("delete").onclick = () => {
+    diary = diary.filter(d => d.id !== id);
+    save(DIARY_KEY, diary);
+    renderDiaryList();
+  };
+}
+
+// ─── Album ───
+function renderAlbum() {
+  app.innerHTML = `
+    <div class="page">
+      <div class="sub-header">
+        <button class="back-btn" id="back">← 返回</button>
+        <h2 class="sub-title">照片墙</h2>
+        <div style="width:60px"></div>
+      </div>
+      <button class="fab" id="add-photo">+ 添加照片</button>
+      <div class="glass compose-card hidden" id="add-form">
+        <input class="input-field" id="p-url" placeholder="图片链接 (URL)">
+        <input class="input-field" id="p-caption" placeholder="描述（可选）">
+        <div class="actions">
+          <button class="btn-ghost" id="cancel-photo">取消</button>
+          <button class="btn-solid" id="save-photo">添加</button>
+        </div>
+      </div>
+      <div class="album-grid" id="album-grid">
+        ${photos.map((p,i) => `
+        <div class="album-item" data-id="${p.id}" style="animation-delay:${i*0.05}s">
+          <img src="${p.src}" alt="${p.caption}">
+          <div class="album-overlay">
+            <span class="album-caption">${p.caption}</span>
+          </div>
+        </div>`).join("")}
+      </div>
+    </div>`;
+  document.getElementById("back").onclick = renderHome;
+  const form = document.getElementById("add-form");
+  document.getElementById("add-photo").onclick = () => form.classList.toggle("hidden");
+  document.getElementById("cancel-photo").onclick = () => form.classList.add("hidden");
+  document.getElementById("save-photo").onclick = () => {
+    const url = document.getElementById("p-url").value.trim();
+    if (!url) return;
+    const caption = document.getElementById("p-caption").value.trim() || "未命名";
+    photos = [{ id: uid(), src: url, caption, date: today() }, ...photos];
+    save(PHOTOS_KEY, photos);
+    renderAlbum();
+  };
+  document.querySelectorAll(".album-item").forEach(el => {
+    el.onclick = () => openLightbox(el.dataset.id);
+  });
+}
+
+function openLightbox(id) {
+  const p = photos.find(x => x.id === id);
+  if (!p) return;
+  const lb = document.createElement("div");
+  lb.className = "lightbox";
+  lb.innerHTML = `
+    <div class="glass lightbox-inner" onclick="event.stopPropagation()">
+      <img src="${p.src}" alt="${p.caption}">
+      <div class="lightbox-info">
+        <div class="lightbox-caption">${p.caption}</div>
+        <div class="lightbox-date">${fmtDate(p.date)}</div>
+      </div>
+      <div class="actions" style="padding:0 22px 18px">
+        <button class="btn-ghost" id="lb-close">关闭</button>
+        <button class="btn-ghost btn-danger" id="lb-delete">删除</button>
+      </div>
+    </div>`;
+  document.body.appendChild(lb);
+  lb.onclick = () => lb.remove();
+  lb.querySelector("#lb-close").onclick = () => lb.remove();
+  lb.querySelector("#lb-delete").onclick = () => {
+    photos = photos.filter(x => x.id !== id);
+    save(PHOTOS_KEY, photos);
+    lb.remove();
+    renderAlbum();
+  };
+}
+
+// ─── Start ───
+renderHome();
+</script>
+</body>
+</html>
