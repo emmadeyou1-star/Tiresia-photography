@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TIRESIA — Fragments of Light</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Noto+Serif+SC:wght@300;400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Noto+Serif+SC:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -20,312 +20,443 @@
     background-attachment: fixed;
     background-repeat: no-repeat;
   }
-
   body::before {
     content: '';
-    position: fixed;
-    inset: 0;
+    position: fixed; inset: 0;
     background: rgba(245,240,235,0.55);
-    backdrop-filter: blur(2px);
-    -webkit-backdrop-filter: blur(2px);
-    z-index: 0;
-    pointer-events: none;
+    backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
+    z-index: 0; pointer-events: none;
   }
 
   #app {
-    position: relative;
-    z-index: 1;
-    max-width: 720px;
-    margin: 0 auto;
-    padding: 0 20px 60px;
+    position: relative; z-index: 1;
+    max-width: 720px; margin: 0 auto; padding: 0 20px 60px;
   }
 
   @keyframes fadeInUp {
     from { opacity: 0; transform: translateY(18px); }
     to { opacity: 1; transform: translateY(0); }
   }
+  @keyframes shimmer {
+    0% { background-position: -200% center; }
+    100% { background-position: 200% center; }
+  }
+  @keyframes float {
+    0%,100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+  }
+  @keyframes pulse { 0%,100%{opacity:0.4} 50%{opacity:1} }
 
-  /* ─── Glass card ─── */
+  /* ─── Lock Screen ─── */
+  .lock-screen {
+    position: fixed; inset: 0; z-index: 9999;
+    display: flex; flex-direction: column;
+    justify-content: center; align-items: center;
+    background: #0c0b0f;
+    background-image: url('./bg.jpg');
+    background-size: cover; background-position: center;
+  }
+  .lock-screen::before {
+    content: ''; position: absolute; inset: 0;
+    background: rgba(30,20,35,0.7);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  }
+  .lock-content {
+    position: relative; z-index: 1; text-align: center;
+    padding: 20px; max-width: 360px; width: 100%;
+  }
+  .lock-sparkle { font-size: 10px; color: rgba(200,176,208,0.5); letter-spacing: 12px; margin-bottom: 20px; animation: pulse 3s ease-in-out infinite; }
+  .lock-title {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: clamp(36px, 8vw, 56px); font-weight: 300;
+    letter-spacing: 0.2em; color: rgba(232,228,223,0.9);
+    margin-bottom: 8px;
+  }
+  .lock-sub {
+    font-size: 12px; color: rgba(160,140,170,0.7);
+    letter-spacing: 0.3em; margin-bottom: 40px;
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    text-transform: uppercase;
+  }
+  .lock-input-wrap {
+    position: relative; margin-bottom: 16px;
+  }
+  .lock-input {
+    width: 100%; padding: 14px 18px; font-size: 15px;
+    font-family: inherit; letter-spacing: 0.1em;
+    background: rgba(255,252,248,0.08);
+    border: 1px solid rgba(200,176,208,0.15);
+    border-radius: 12px; color: rgba(232,228,223,0.9);
+    outline: none; text-align: center;
+    transition: all 0.3s;
+  }
+  .lock-input::placeholder { color: rgba(160,140,170,0.4); }
+  .lock-input:focus {
+    border-color: rgba(200,176,208,0.35);
+    background: rgba(255,252,248,0.12);
+    box-shadow: 0 0 30px rgba(140,90,160,0.08);
+  }
+  .lock-btn {
+    width: 100%; padding: 14px; font-size: 14px;
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    letter-spacing: 0.15em; text-transform: uppercase;
+    background: rgba(200,176,208,0.12);
+    border: 1px solid rgba(200,176,208,0.2);
+    border-radius: 12px; color: rgba(232,228,223,0.8);
+    cursor: pointer; transition: all 0.3s;
+  }
+  .lock-btn:hover {
+    background: rgba(200,176,208,0.2);
+    border-color: rgba(200,176,208,0.35);
+  }
+  .lock-error {
+    font-size: 12px; color: rgba(200,120,120,0.8);
+    margin-top: 12px; min-height: 18px; letter-spacing: 0.06em;
+  }
+  .lock-hint {
+    font-size: 11px; color: rgba(160,140,170,0.35);
+    margin-top: 24px; letter-spacing: 0.08em;
+  }
+
+  /* ─── Role badge ─── */
+  .role-badge {
+    position: fixed; top: 14px; right: 14px; z-index: 20;
+    padding: 6px 14px; border-radius: 100px;
+    font-size: 11px; letter-spacing: 0.08em;
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    cursor: pointer; transition: all 0.2s;
+  }
+  .role-badge.admin {
+    background: rgba(140,90,160,0.12); color: #7a5090;
+    border: 1px solid rgba(140,90,160,0.2);
+  }
+  .role-badge.visitor {
+    background: rgba(160,140,170,0.08); color: #9a85a0;
+    border: 1px solid rgba(160,140,170,0.15);
+  }
+  .role-badge:hover { opacity: 0.8; }
+
+  /* ─── Glass ─── */
   .glass {
     background: rgba(255,252,248,0.72);
     border: 1px solid rgba(160,120,180,0.15);
     border-radius: 14px;
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
     box-shadow: 0 2px 20px rgba(100,60,120,0.06);
     transition: all 0.3s ease;
   }
-  .glass:hover, .glass-hover:hover {
+  .glass:hover {
     border-color: rgba(140,90,160,0.22);
     background: rgba(255,252,248,0.82);
     box-shadow: 0 4px 24px rgba(100,60,120,0.1);
   }
 
   /* ─── Header ─── */
-  .home-header {
-    text-align: center;
-    padding: 72px 0 48px;
-  }
-  .header-accent {
-    width: 40px; height: 1px;
-    background: linear-gradient(to right, transparent, rgba(140,90,160,0.35), transparent);
-    margin: 0 auto 20px;
-  }
-  .brand-sub {
-    font-size: 11px; letter-spacing: 0.35em; text-transform: uppercase;
-    color: #9a85a0; margin-bottom: 12px;
-    font-family: 'Cormorant Garamond', Georgia, serif;
-  }
-  .site-name {
-    font-family: 'Cormorant Garamond', Georgia, serif;
-    font-size: clamp(38px, 8vw, 64px); font-weight: 300;
-    letter-spacing: 0.18em; margin: 0 0 12px; color: #3a2a3e;
-    text-shadow: 0 2px 30px rgba(140,90,160,0.08);
-  }
-  .site-tagline {
-    font-size: 14px; color: #9a85a0; letter-spacing: 0.2em;
-    font-style: italic; margin-bottom: 20px;
-  }
+  .home-header { text-align: center; padding: 60px 0 36px; }
+  .header-accent { width: 40px; height: 1px; background: linear-gradient(to right, transparent, rgba(140,90,160,0.35), transparent); margin: 0 auto 16px; }
+  .brand-sub { font-size: 11px; letter-spacing: 0.35em; text-transform: uppercase; color: #9a85a0; margin-bottom: 10px; font-family: 'Cormorant Garamond', Georgia, serif; }
+  .site-name { font-family: 'Cormorant Garamond', Georgia, serif; font-size: clamp(38px, 8vw, 64px); font-weight: 300; letter-spacing: 0.18em; margin: 0 0 10px; color: #3a2a3e; text-shadow: 0 2px 30px rgba(140,90,160,0.08); }
+  .site-tagline { font-size: 14px; color: #9a85a0; letter-spacing: 0.2em; font-style: italic; margin-bottom: 16px; }
+  .sparkle-row { display: flex; justify-content: center; gap: 16px; margin-bottom: 8px; }
+  .sparkle { font-size: 10px; color: #c8b0d0; animation: float 3s ease-in-out infinite; }
+  .sparkle:nth-child(2) { animation-delay: 0.5s; }
+  .sparkle:nth-child(3) { animation-delay: 1s; }
 
-  /* ─── Home cards ─── */
-  .home-cards { display: flex; flex-direction: column; gap: 16px; margin-top: 8px; }
-  .home-card {
-    padding: 22px 26px; cursor: pointer; position: relative; overflow: hidden;
-  }
-  .card-top {
-    display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;
-  }
-  .card-label { font-size: 17px; font-weight: 400; letter-spacing: 0.06em; color: #3a2a3e; }
-  .card-count { font-size: 12px; color: #9a85a0; letter-spacing: 0.1em; }
-  .card-arrow {
-    position: absolute; right: 24px; top: 22px; font-size: 18px;
-    color: #c0b0c8; transition: color 0.3s;
-  }
+  /* ─── Cards ─── */
+  .home-cards { display: flex; flex-direction: column; gap: 14px; margin-top: 8px; }
+  .home-card { padding: 20px 24px; cursor: pointer; position: relative; overflow: hidden; }
+  .card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .card-label { font-size: 16px; font-weight: 400; letter-spacing: 0.06em; color: #3a2a3e; }
+  .card-count { font-size: 11px; color: #9a85a0; letter-spacing: 0.1em; }
+  .card-arrow { position: absolute; right: 22px; top: 20px; font-size: 16px; color: #c0b0c8; transition: color 0.3s; }
   .home-card:hover .card-arrow { color: #7a5090; }
-  .latest-preview {
-    display: flex; align-items: center; gap: 12px;
-    padding: 12px 14px; border-radius: 10px;
-    background: rgba(140,90,160,0.04);
-  }
-  .preview-title { font-size: 14px; color: #5a4560; }
+  .card-emoji { font-size: 22px; margin-right: 8px; vertical-align: middle; }
+  .latest-preview { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; background: rgba(140,90,160,0.04); }
+  .preview-title { font-size: 13px; color: #5a4560; }
   .preview-date { font-size: 11px; color: #b0a0b5; margin-top: 2px; }
   .photo-strip { display: flex; gap: 8px; overflow: hidden; }
-  .photo-strip img {
-    width: 72px; height: 50px; object-fit: cover; border-radius: 6px;
-  }
+  .photo-strip img { width: 64px; height: 44px; object-fit: cover; border-radius: 6px; }
+  .wish-preview-bar { margin-top: 10px; height: 4px; border-radius: 2px; background: rgba(140,90,160,0.08); overflow: hidden; }
+  .wish-preview-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg, #b085c0, #d4a5e0); transition: width 0.6s ease; }
+  .wish-preview-text { font-size: 12px; color: #b0a0b5; margin-top: 6px; }
 
-  /* ─── Footer ─── */
-  .home-footer { text-align: center; padding: 56px 0 20px; }
-  .footer-line { width: 20px; height: 1px; background: rgba(140,90,160,0.2); margin: 0 auto 16px; }
+  .home-footer { text-align: center; padding: 40px 0 20px; }
+  .footer-line { width: 20px; height: 1px; background: rgba(140,90,160,0.2); margin: 0 auto 12px; }
   .footer-text { font-size: 12px; color: #b0a0b5; letter-spacing: 0.12em; }
+  .footer-quote { font-size: 13px; color: #c0b0c8; font-style: italic; font-family: 'Cormorant Garamond', Georgia, serif; letter-spacing: 0.08em; margin-top: 8px; }
 
   /* ─── Sub header ─── */
-  .sub-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 24px 0 16px; border-bottom: 1px solid rgba(140,90,160,0.1);
-    margin-bottom: 24px; position: sticky; top: 0;
-    background: rgba(245,240,235,0.75); backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px); z-index: 10;
-  }
-  .back-btn {
-    background: none; border: none; font-size: 13px; color: #9a85a0;
-    cursor: pointer; font-family: inherit; padding: 4px 0;
-    transition: color 0.2s;
-  }
+  .sub-header { display: flex; align-items: center; justify-content: space-between; padding: 24px 0 16px; border-bottom: 1px solid rgba(140,90,160,0.1); margin-bottom: 24px; position: sticky; top: 0; background: rgba(245,240,235,0.75); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); z-index: 10; }
+  .back-btn { background: none; border: none; font-size: 13px; color: #9a85a0; cursor: pointer; font-family: inherit; padding: 4px 0; transition: color 0.2s; }
   .back-btn:hover { color: #7a5090; }
-  .sub-title {
-    font-size: 19px; font-weight: 400; letter-spacing: 0.12em;
-    font-family: 'Cormorant Garamond', Georgia, serif; color: #3a2a3e;
-  }
+  .sub-title { font-size: 19px; font-weight: 400; letter-spacing: 0.12em; font-family: 'Cormorant Garamond', Georgia, serif; color: #3a2a3e; }
 
-  /* ─── FAB ─── */
-  .fab {
-    display: inline-block; background: rgba(140,90,160,0.1); color: #7a5090;
-    border: 1px solid rgba(140,90,160,0.2); border-radius: 100px;
-    padding: 10px 26px; font-size: 13px; font-family: inherit;
-    cursor: pointer; letter-spacing: 0.08em; margin-bottom: 24px;
-    transition: all 0.25s;
-  }
-  .fab:hover {
-    background: rgba(140,90,160,0.18);
-    border-color: rgba(140,90,160,0.35);
-  }
+  .fab { display: inline-block; background: rgba(140,90,160,0.1); color: #7a5090; border: 1px solid rgba(140,90,160,0.2); border-radius: 100px; padding: 10px 26px; font-size: 13px; font-family: inherit; cursor: pointer; letter-spacing: 0.08em; margin-bottom: 12px; margin-right: 8px; transition: all 0.25s; }
+  .fab:hover { background: rgba(140,90,160,0.18); border-color: rgba(140,90,160,0.35); }
 
-  /* ─── Diary list ─── */
+  /* ─── Forms ─── */
+  .compose-card { padding: 26px; }
+  .compose-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 18px; }
+  .date-input { font-family: inherit; font-size: 13px; padding: 7px 10px; border: 1px solid rgba(140,90,160,0.15); border-radius: 8px; background: rgba(255,252,248,0.6); color: #5a4560; }
+  .mood-picker { display: flex; gap: 6px; flex-wrap: wrap; }
+  .mood-option { font-size: 20px; cursor: pointer; transition: all 0.15s; opacity: 0.3; display: inline-block; }
+  .mood-option.active { opacity: 1; transform: scale(1.3); }
+  .input-field { width: 100%; font-family: inherit; font-size: 15px; padding: 12px 14px; border: 1px solid rgba(140,90,160,0.12); border-radius: 10px; background: rgba(255,252,248,0.5); color: #3a2a3e; outline: none; margin-bottom: 12px; letter-spacing: 0.02em; }
+  .input-field::placeholder { color: #c0b0c8; }
+  textarea.input-field { resize: vertical; line-height: 1.9; min-height: 160px; }
+  select.input-field { appearance: auto; cursor: pointer; }
+  .actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+  .btn-solid { background: rgba(140,90,160,0.12); color: #7a5090; border: 1px solid rgba(140,90,160,0.25); border-radius: 10px; padding: 10px 28px; font-size: 14px; font-family: inherit; cursor: pointer; letter-spacing: 0.05em; transition: all 0.2s; }
+  .btn-ghost { background: rgba(255,252,248,0.5); color: #8a7590; border: 1px solid rgba(140,90,160,0.12); border-radius: 10px; padding: 10px 20px; font-size: 14px; font-family: inherit; cursor: pointer; transition: all 0.2s; }
+  .btn-danger { color: #a05050; }
+
+  /* ─── Diary ─── */
   .diary-list { display: flex; flex-direction: column; gap: 10px; }
   .empty-hint { text-align: center; color: #b0a0b5; margin-top: 60px; font-size: 14px; letter-spacing: 0.1em; }
-  .diary-card {
-    display: flex; gap: 16px; padding: 18px 20px; cursor: pointer;
-    animation: fadeInUp 0.45s ease both;
-  }
-  .diary-left {
-    display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 48px;
-  }
+  .diary-card { display: flex; gap: 16px; padding: 18px 20px; cursor: pointer; animation: fadeInUp 0.45s ease both; }
+  .diary-left { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 48px; }
   .diary-mood { font-size: 22px; }
   .diary-date-small { font-size: 11px; color: #b0a0b5; white-space: nowrap; }
   .diary-title { font-size: 15px; font-weight: 400; margin: 0 0 4px; letter-spacing: 0.03em; color: #3a2a3e; }
   .diary-snippet { font-size: 13px; color: #8a7590; margin: 0; line-height: 1.7; }
-
-  /* ─── Compose / Detail ─── */
-  .compose-card { padding: 26px; }
-  .compose-row {
-    display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 18px;
-  }
-  .date-input {
-    font-family: inherit; font-size: 13px; padding: 7px 10px;
-    border: 1px solid rgba(140,90,160,0.15); border-radius: 8px;
-    background: rgba(255,252,248,0.6); color: #5a4560;
-  }
-  .mood-picker { display: flex; gap: 6px; flex-wrap: wrap; }
-  .mood-option {
-    font-size: 20px; cursor: pointer; transition: all 0.15s;
-    opacity: 0.3; display: inline-block;
-  }
-  .mood-option.active { opacity: 1; transform: scale(1.3); }
-  .input-field {
-    width: 100%; font-family: inherit; font-size: 15px; padding: 12px 14px;
-    border: 1px solid rgba(140,90,160,0.12); border-radius: 10px;
-    background: rgba(255,252,248,0.5); color: #3a2a3e;
-    outline: none; margin-bottom: 12px; letter-spacing: 0.02em;
-  }
-  .input-field::placeholder { color: #c0b0c8; }
-  textarea.input-field { resize: vertical; line-height: 1.9; min-height: 160px; }
-  .actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
-  .btn-solid {
-    background: rgba(140,90,160,0.12); color: #7a5090;
-    border: 1px solid rgba(140,90,160,0.25); border-radius: 10px;
-    padding: 10px 28px; font-size: 14px; font-family: inherit;
-    cursor: pointer; letter-spacing: 0.05em; transition: all 0.2s;
-  }
-  .btn-ghost {
-    background: rgba(255,252,248,0.5); color: #8a7590;
-    border: 1px solid rgba(140,90,160,0.12); border-radius: 10px;
-    padding: 10px 20px; font-size: 14px; font-family: inherit;
-    cursor: pointer; transition: all 0.2s;
-  }
-  .btn-danger { color: #a05050; }
-
-  /* ─── Detail ─── */
-  .detail-header {
-    display: flex; align-items: center; gap: 16px;
-    margin-bottom: 24px; padding-bottom: 20px;
-    border-bottom: 1px solid rgba(120,80,140,0.12);
-  }
+  .detail-header { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid rgba(120,80,140,0.12); }
   .detail-mood { font-size: 32px; }
-  .detail-title {
-    font-size: 22px; font-weight: 400; color: #3a2a3e;
-    font-family: 'Noto Serif SC', Georgia, serif; letter-spacing: 0.04em;
-  }
+  .detail-title { font-size: 22px; font-weight: 400; color: #3a2a3e; font-family: 'Noto Serif SC', Georgia, serif; letter-spacing: 0.04em; }
   .detail-date { font-size: 13px; color: #9a85a0; margin-top: 4px; }
-  .detail-content {
-    font-size: 15px; line-height: 2.1; color: #5a4560;
-    white-space: pre-wrap; letter-spacing: 0.02em;
-    font-family: 'Noto Serif SC', Georgia, serif;
-  }
+  .detail-content { font-size: 15px; line-height: 2.1; color: #5a4560; white-space: pre-wrap; letter-spacing: 0.02em; }
 
-  /* ─── Album ─── */
-  .album-grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px;
-  }
-  .album-item {
-    position: relative; border-radius: 10px; overflow: hidden;
-    cursor: pointer; aspect-ratio: 1;
-    animation: fadeInUp 0.45s ease both;
-    box-shadow: 0 2px 12px rgba(100,60,120,0.08);
-  }
-  .album-item img {
-    width: 100%; height: 100%; object-fit: cover; display: block;
-    transition: transform 0.6s cubic-bezier(0.25,0.46,0.45,0.94);
-  }
+  /* ─── Folders ─── */
+  .folder-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; margin-bottom: 20px; }
+  .folder-card { padding: 20px 16px; cursor: pointer; text-align: center; animation: fadeInUp 0.4s ease both; }
+  .folder-icon { font-size: 36px; margin-bottom: 8px; display: block; }
+  .folder-name { font-size: 14px; color: #3a2a3e; letter-spacing: 0.04em; margin-bottom: 4px; }
+  .folder-count { font-size: 11px; color: #b0a0b5; }
+  .folder-actions { display: flex; gap: 6px; justify-content: center; margin-top: 8px; opacity: 0; transition: opacity 0.2s; }
+  .folder-card:hover .folder-actions { opacity: 1; }
+  .folder-action-btn { background: none; border: none; font-size: 11px; color: #9a85a0; cursor: pointer; padding: 2px 6px; transition: color 0.2s; }
+  .folder-action-btn:hover { color: #7a5090; }
+  .folder-action-btn.danger:hover { color: #a05050; }
+
+  .drop-zone { border: 2px dashed rgba(140,90,160,0.25); border-radius: 14px; padding: 40px 20px; text-align: center; margin-bottom: 20px; transition: all 0.3s; cursor: pointer; background: rgba(255,252,248,0.3); }
+  .drop-zone.drag-over { border-color: rgba(140,90,160,0.5); background: rgba(140,90,160,0.06); transform: scale(1.01); }
+  .drop-icon { font-size: 32px; margin-bottom: 10px; display: block; color: #c0b0c8; }
+  .drop-text { font-size: 14px; color: #9a85a0; letter-spacing: 0.06em; margin-bottom: 6px; }
+  .drop-hint { font-size: 12px; color: #c0b0c8; }
+  .upload-preview { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; justify-content: center; }
+  .upload-thumb { width: 60px; height: 60px; object-fit: cover; border-radius: 8px; border: 2px solid rgba(140,90,160,0.15); }
+
+  .album-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+  .album-item { position: relative; border-radius: 10px; overflow: hidden; cursor: pointer; aspect-ratio: 1; animation: fadeInUp 0.45s ease both; box-shadow: 0 2px 12px rgba(100,60,120,0.08); }
+  .album-item img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.6s cubic-bezier(0.25,0.46,0.45,0.94); }
   .album-item:hover img { transform: scale(1.06); }
-  .album-overlay {
-    position: absolute; inset: 0;
-    background: linear-gradient(0deg, rgba(50,30,60,0.55) 0%, transparent 55%);
-    display: flex; align-items: flex-end; padding: 14px;
-    opacity: 0; transition: opacity 0.35s;
-  }
+  .album-overlay { position: absolute; inset: 0; background: linear-gradient(0deg, rgba(50,30,60,0.55) 0%, transparent 55%); display: flex; align-items: flex-end; padding: 14px; opacity: 0; transition: opacity 0.35s; }
   .album-item:hover .album-overlay { opacity: 1; }
   .album-caption { color: rgba(255,255,255,0.9); font-size: 12px; letter-spacing: 0.06em; }
 
-  /* ─── Lightbox ─── */
-  .lightbox {
-    position: fixed; inset: 0; z-index: 100;
-    background: rgba(50,30,60,0.85); display: flex;
-    justify-content: center; align-items: center; padding: 20px;
-    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-  }
-  .lightbox-inner {
-    overflow: hidden; max-width: 540px; width: 100%;
-    background: rgba(255,252,248,0.95);
-  }
-  .lightbox-inner img {
-    width: 100%; max-height: 60vh; object-fit: cover; display: block;
-  }
+  .lightbox { position: fixed; inset: 0; z-index: 100; background: rgba(50,30,60,0.85); display: flex; justify-content: center; align-items: center; padding: 20px; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+  .lightbox-inner { overflow: hidden; max-width: 540px; width: 100%; background: rgba(255,252,248,0.95); }
+  .lightbox-inner img { width: 100%; max-height: 60vh; object-fit: contain; display: block; background: #f0ebe5; }
   .lightbox-info { padding: 18px 22px 10px; }
-  .lightbox-caption {
-    font-size: 17px; color: #3a2a3e;
-    font-family: 'Noto Serif SC', Georgia, serif;
-  }
+  .lightbox-caption { font-size: 17px; color: #3a2a3e; font-family: 'Noto Serif SC', Georgia, serif; }
   .lightbox-date { font-size: 12px; color: #9a85a0; margin-top: 4px; }
 
-  /* ─── Page transitions ─── */
-  .page { animation: fadeInUp 0.35s ease both; }
+  /* ─── Wishes ─── */
+  .wish-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+  .wish-tab { padding: 7px 16px; border-radius: 100px; font-size: 12px; font-family: inherit; cursor: pointer; letter-spacing: 0.06em; border: 1px solid rgba(140,90,160,0.15); background: rgba(255,252,248,0.4); color: #8a7590; transition: all 0.2s; }
+  .wish-tab.active { background: rgba(140,90,160,0.12); color: #7a5090; border-color: rgba(140,90,160,0.3); }
+  .wish-tab:hover { border-color: rgba(140,90,160,0.3); }
+  .wish-list { display: flex; flex-direction: column; gap: 10px; }
+  .wish-card { padding: 16px 20px; animation: fadeInUp 0.4s ease both; cursor: pointer; display: flex; gap: 14px; align-items: flex-start; }
+  .wish-check { width: 22px; height: 22px; border-radius: 50%; border: 2px solid rgba(140,90,160,0.25); display: flex; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; transition: all 0.2s; flex-shrink: 0; margin-top: 2px; }
+  .wish-check.done { background: rgba(140,90,160,0.15); border-color: rgba(140,90,160,0.4); color: #7a5090; }
+  .wish-body { flex: 1; min-width: 0; }
+  .wish-title-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .wish-title { font-size: 15px; color: #3a2a3e; letter-spacing: 0.03em; }
+  .wish-title.done-text { text-decoration: line-through; color: #b0a0b5; }
+  .wish-cat-badge { font-size: 10px; padding: 2px 8px; border-radius: 100px; background: rgba(140,90,160,0.08); color: #9a85a0; letter-spacing: 0.06em; }
+  .wish-note { font-size: 13px; color: #8a7590; line-height: 1.6; margin-top: 2px; }
+  .wish-meta { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+  .wish-stars { color: #d4a5e0; font-size: 13px; letter-spacing: 2px; }
+  .wish-date { font-size: 11px; color: #c0b0c8; }
+  .wish-deadline { font-size: 11px; color: #c09070; }
+  .wish-progress-section { margin-bottom: 24px; }
+  .wish-progress-label { font-size: 12px; color: #9a85a0; margin-bottom: 6px; letter-spacing: 0.08em; }
+  .wish-progress-bar { height: 6px; border-radius: 3px; background: rgba(140,90,160,0.08); overflow: hidden; }
+  .wish-progress-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #c090d0, #e0b0f0, #c090d0); background-size: 200% auto; animation: shimmer 3s linear infinite; transition: width 0.6s ease; }
+  .wish-stats { display: flex; gap: 16px; margin-top: 8px; }
+  .wish-stat { font-size: 12px; color: #b0a0b5; }
+  .wish-stat strong { color: #7a5090; font-weight: 500; }
+  .star-picker { display: flex; gap: 4px; }
+  .star-pick { font-size: 22px; cursor: pointer; transition: all 0.15s; opacity: 0.25; }
+  .star-pick.lit { opacity: 1; }
 
-  /* ─── Hidden utility ─── */
+  .page { animation: fadeInUp 0.35s ease both; }
   .hidden { display: none !important; }
 
-  /* ─── Scrollbar ─── */
+  .modal-overlay { position: fixed; inset: 0; z-index: 50; background: rgba(50,30,60,0.5); display: flex; justify-content: center; align-items: center; padding: 20px; backdrop-filter: blur(6px); }
+  .modal-box { width: 100%; max-width: 380px; padding: 28px; background: rgba(255,252,248,0.97); }
+  .modal-title { font-size: 18px; font-weight: 400; margin-bottom: 18px; letter-spacing: 0.06em; text-align: center; font-family: 'Cormorant Garamond', Georgia, serif; }
+
+  /* admin-only elements hidden for visitors */
+  .admin-only { display: none; }
+  body.is-admin .admin-only { display: inline-block; }
+  body.is-admin .admin-only-flex { display: flex; }
+  body.is-admin .admin-only-block { display: block; }
+
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: rgba(140,90,160,0.12); border-radius: 3px; }
 </style>
 </head>
 <body>
+
+<!-- Lock Screen -->
+<div class="lock-screen" id="lock-screen">
+  <div class="lock-content">
+    <div class="lock-sparkle">✦ ✧ ✦</div>
+    <h1 class="lock-title">TIRESIA</h1>
+    <p class="lock-sub">Fragments of Light</p>
+    <div class="lock-input-wrap">
+      <input type="password" class="lock-input" id="lock-input" placeholder="请输入密码" autocomplete="off">
+    </div>
+    <button class="lock-btn" id="lock-btn">进入</button>
+    <div class="lock-error" id="lock-error"></div>
+    <div class="lock-hint">输入访客密码浏览 · 输入管理密码编辑</div>
+  </div>
+</div>
+
 <div id="app"></div>
 
 <script>
+// ═══════════════════════════════════
+// PASSWORD CONFIG — 修改这里设置你的密码
+// ═══════════════════════════════════
+const VISITOR_PASS = "8888";       // 访客密码（只能看）
+const ADMIN_PASS = "6868";     // 管理密码（可以编辑）
+
+// ─── Auth state ───
+let isAdmin = false;
+let isUnlocked = false;
+
+// ─── Lock screen ───
+const lockScreen = document.getElementById("lock-screen");
+const lockInput = document.getElementById("lock-input");
+const lockBtn = document.getElementById("lock-btn");
+const lockError = document.getElementById("lock-error");
+
+// Check session
+const session = sessionStorage.getItem("tiresia_role");
+if (session === "admin" || session === "visitor") {
+  isUnlocked = true;
+  isAdmin = session === "admin";
+  lockScreen.style.display = "none";
+  if (isAdmin) document.body.classList.add("is-admin");
+  renderHome();
+}
+
+lockBtn.onclick = tryUnlock;
+lockInput.onkeydown = (e) => { if (e.key === "Enter") tryUnlock(); };
+
+function tryUnlock() {
+  const val = lockInput.value.trim();
+  if (val === ADMIN_PASS) {
+    isAdmin = true; isUnlocked = true;
+    document.body.classList.add("is-admin");
+    sessionStorage.setItem("tiresia_role", "admin");
+    lockScreen.style.display = "none";
+    renderHome();
+  } else if (val === VISITOR_PASS) {
+    isAdmin = false; isUnlocked = true;
+    document.body.classList.remove("is-admin");
+    sessionStorage.setItem("tiresia_role", "visitor");
+    lockScreen.style.display = "none";
+    renderHome();
+  } else {
+    lockError.textContent = "密码不正确，请重试";
+    lockInput.value = "";
+    lockInput.focus();
+  }
+}
+
+function logout() {
+  sessionStorage.removeItem("tiresia_role");
+  isAdmin = false; isUnlocked = false;
+  document.body.classList.remove("is-admin");
+  lockScreen.style.display = "flex";
+  lockInput.value = "";
+  lockError.textContent = "";
+  app.innerHTML = "";
+}
+
 // ─── Data ───
 const DIARY_KEY = "tiresia_diary";
-const PHOTOS_KEY = "tiresia_photos";
+const FOLDERS_KEY = "tiresia_folders";
+const WISHES_KEY = "tiresia_wishes";
 
 const SEED_DIARY = [
   { id:"d1", date:"2026-03-17", mood:"☀️", title:"春天快到了", content:"今天阳光很好，下午去公园散了步，拍了几张花的照片。感觉冬天终于要过去了。" },
   { id:"d2", date:"2026-03-16", mood:"🌧️", title:"读了一本好书", content:"下雨天待在家里，读完了《小王子》。每次读都有不同的感受，大人的世界真的很奇怪。" },
   { id:"d3", date:"2026-03-15", mood:"🌙", title:"深夜想法", content:"夜深了还是睡不着，想了很多关于未来的事情。不过明天又是新的一天。" },
 ];
-
-const SEED_PHOTOS = [
-  { id:"p1", src:"https://picsum.photos/600/400?random=11", caption:"午后的光", date:"2026-03-17" },
-  { id:"p2", src:"https://picsum.photos/400/600?random=22", caption:"街角咖啡店", date:"2026-03-16" },
-  { id:"p3", src:"https://picsum.photos/600/400?random=33", caption:"远山", date:"2026-03-15" },
-  { id:"p4", src:"https://picsum.photos/400/500?random=44", caption:"老巷子", date:"2026-03-14" },
-  { id:"p5", src:"https://picsum.photos/600/400?random=55", caption:"雨后", date:"2026-03-13" },
-  { id:"p6", src:"https://picsum.photos/500/400?random=66", caption:"窗台的花", date:"2026-03-12" },
+const SEED_FOLDERS = [
+  { id:"f1", name:"日常随拍", cover:"", photos:[
+    { id:"p1", src:"https://picsum.photos/600/400?random=11", caption:"午后的光", date:"2026-03-17" },
+    { id:"p2", src:"https://picsum.photos/400/600?random=22", caption:"街角咖啡店", date:"2026-03-16" },
+  ]},
+  { id:"f2", name:"旅行记忆", cover:"", photos:[
+    { id:"p4", src:"https://picsum.photos/400/500?random=44", caption:"老巷子", date:"2026-03-14" },
+    { id:"p5", src:"https://picsum.photos/600/400?random=55", caption:"雨后", date:"2026-03-13" },
+  ]},
 ];
-
+const WISH_CATS = [
+  { key:"all", label:"全部", emoji:"✦" },
+  { key:"travel", label:"旅行", emoji:"✈️" },
+  { key:"learn", label:"学习", emoji:"📖" },
+  { key:"life", label:"生活", emoji:"🌿" },
+  { key:"career", label:"事业", emoji:"💼" },
+  { key:"create", label:"创作", emoji:"🎨" },
+  { key:"health", label:"健康", emoji:"🏃" },
+  { key:"love", label:"爱与友情", emoji:"💕" },
+];
+const SEED_WISHES = [
+  { id:"w1", title:"去韩国旅行", note:"想去首尔和济州岛", cat:"travel", stars:3, done:false, date:"2026-03-17", deadline:"2026-08-01" },
+  { id:"w2", title:"学会弹一首吉他曲", note:"", cat:"learn", stars:2, done:false, date:"2026-03-16", deadline:"" },
+  { id:"w3", title:"每周读一本书", note:"今年目标50本", cat:"learn", stars:3, done:false, date:"2026-03-15", deadline:"2026-12-31" },
+  { id:"w4", title:"开始晨跑", note:"每周三次", cat:"health", stars:2, done:true, date:"2026-03-10", deadline:"" },
+];
 const MOODS = ["☀️","🌤️","☁️","🌧️","🌙","⭐","🍃","🔥","❄️","🌸"];
+const QUOTES = ["生活是一场温柔的冒险","把每一天都当作礼物","慢慢来，比较快","星星会为你指路","心之所向，素履以往"];
 
-function load(key, fallback) {
-  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
-  catch { return fallback; }
+function load(k,fb){try{const v=localStorage.getItem(k);return v?JSON.parse(v):fb;}catch{return fb;}}
+function save(k,d){try{localStorage.setItem(k,JSON.stringify(d));}catch(e){console.warn("Storage full",e);}}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function fmtDate(d){const dt=new Date(d+"T00:00:00");return`${dt.getMonth()+1}月${dt.getDate()}日`;}
+function today(){return new Date().toISOString().slice(0,10);}
+function fileToBase64(f){return new Promise((r,j)=>{const x=new FileReader();x.onload=()=>r(x.result);x.onerror=()=>j();x.readAsDataURL(f);});}
+function totalPhotos(){return folders.reduce((s,f)=>s+f.photos.length,0);}
+function allPhotosFlat(){return folders.flatMap(f=>f.photos);}
+function starsStr(n){return"★".repeat(n)+"☆".repeat(3-n);}
+function rndQuote(){return QUOTES[Math.floor(Math.random()*QUOTES.length)];}
+
+let diary=load(DIARY_KEY,SEED_DIARY);
+let folders=load(FOLDERS_KEY,SEED_FOLDERS);
+let wishes=load(WISHES_KEY,SEED_WISHES);
+const app=document.getElementById("app");
+
+// Role badge HTML
+function roleBadge(){
+  return `<div class="role-badge ${isAdmin?"admin":"visitor"}" id="role-badge" title="点击退出登录">${isAdmin?"🔓 管理员":"👁 访客模式"}</div>`;
 }
-function save(key, data) { localStorage.setItem(key, JSON.stringify(data)); }
-function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
-function fmtDate(d) { const dt = new Date(d+"T00:00:00"); return `${dt.getMonth()+1}月${dt.getDate()}日`; }
-function today() { return new Date().toISOString().slice(0,10); }
+function bindRoleBadge(){ document.getElementById("role-badge").onclick=logout; }
 
-let diary = load(DIARY_KEY, SEED_DIARY);
-let photos = load(PHOTOS_KEY, SEED_PHOTOS);
-const app = document.getElementById("app");
-
-// ─── Render functions ───
-function renderHome() {
-  const latest = diary[0];
-  const preview = photos.slice(0,3);
-  app.innerHTML = `
+// ════ HOME ════
+function renderHome(){
+  const latest=diary[0];const preview=allPhotosFlat().slice(0,3);
+  const wd=wishes.filter(w=>w.done).length,wt=wishes.length,wp=wt?Math.round(wd/wt*100):0;
+  app.innerHTML=`${roleBadge()}
     <div class="page">
       <header class="home-header">
-        <div class="header-accent"></div>
+        <div class="sparkle-row"><span class="sparkle">✦</span><span class="sparkle">✧</span><span class="sparkle">✦</span></div>
         <p class="brand-sub">Fragments of Light</p>
         <h1 class="site-name">TIRESIA</h1>
         <p class="site-tagline">记录每一天的光与影</p>
@@ -333,227 +464,214 @@ function renderHome() {
       </header>
       <div class="home-cards">
         <div class="glass home-card" id="go-diary">
-          <div class="card-top">
-            <div class="card-label">日记本</div>
-            <div class="card-count">${diary.length} 篇</div>
-          </div>
-          ${latest ? `
-          <div class="latest-preview">
-            <span style="font-size:20px">${latest.mood}</span>
-            <div style="flex:1">
-              <div class="preview-title">${latest.title}</div>
-              <div class="preview-date">${fmtDate(latest.date)}</div>
-            </div>
-          </div>` : ""}
+          <div class="card-top"><div class="card-label"><span class="card-emoji">✎</span>日记本</div><div class="card-count">${diary.length} 篇</div></div>
+          ${latest?`<div class="latest-preview"><span style="font-size:18px">${latest.mood}</span><div style="flex:1"><div class="preview-title">${latest.title}</div><div class="preview-date">${fmtDate(latest.date)}</div></div></div>`:""}
           <div class="card-arrow">→</div>
         </div>
         <div class="glass home-card" id="go-album">
-          <div class="card-top">
-            <div class="card-label">照片墙</div>
-            <div class="card-count">${photos.length} 张</div>
-          </div>
-          <div class="photo-strip">
-            ${preview.map(p => `<img src="${p.src}" alt="">`).join("")}
-          </div>
+          <div class="card-top"><div class="card-label"><span class="card-emoji">◻</span>照片墙</div><div class="card-count">${folders.length} 相册 · ${totalPhotos()} 张</div></div>
+          <div class="photo-strip">${preview.map(p=>`<img src="${p.src}" alt="">`).join("")}</div>
+          <div class="card-arrow">→</div>
+        </div>
+        <div class="glass home-card" id="go-wishes">
+          <div class="card-top"><div class="card-label"><span class="card-emoji">✨</span>心愿清单</div><div class="card-count">${wd}/${wt} 已完成</div></div>
+          <div class="wish-preview-bar"><div class="wish-preview-fill" style="width:${wp}%"></div></div>
+          <div class="wish-preview-text">${wt>0?wishes.filter(w=>!w.done).slice(0,2).map(w=>`${WISH_CATS.find(c=>c.key===w.cat)?.emoji||"✦"} ${w.title}`).join("　·　"):"还没有心愿"}</div>
           <div class="card-arrow">→</div>
         </div>
       </div>
-      <footer class="home-footer">
-        <div class="footer-line"></div>
-        <p class="footer-text">今天是 ${fmtDate(today())}，记得记录你的一天</p>
-      </footer>
+      <footer class="home-footer"><div class="footer-line"></div><p class="footer-text">今天是 ${fmtDate(today())}</p><p class="footer-quote">"${rndQuote()}"</p></footer>
     </div>`;
-  document.getElementById("go-diary").onclick = renderDiaryList;
-  document.getElementById("go-album").onclick = renderAlbum;
+  bindRoleBadge();
+  document.getElementById("go-diary").onclick=renderDiaryList;
+  document.getElementById("go-album").onclick=renderAlbumFolders;
+  document.getElementById("go-wishes").onclick=()=>renderWishes();
 }
 
-// ─── Diary List ───
-function renderDiaryList() {
-  app.innerHTML = `
-    <div class="page">
-      <div class="sub-header">
-        <button class="back-btn" id="back">← 返回</button>
-        <h2 class="sub-title">日记本</h2>
-        <div style="width:60px"></div>
-      </div>
-      <button class="fab" id="new-diary">+ 写日记</button>
-      <div class="diary-list" id="diary-list">
-        ${diary.length === 0 ? '<p class="empty-hint">还没有日记，写下第一篇吧</p>' :
-          diary.map((e,i) => `
-          <div class="glass diary-card" data-id="${e.id}" style="animation-delay:${i*0.06}s">
-            <div class="diary-left">
-              <span class="diary-mood">${e.mood}</span>
-              <span class="diary-date-small">${fmtDate(e.date)}</span>
-            </div>
-            <div style="flex:1;min-width:0">
-              <h4 class="diary-title">${e.title}</h4>
-              <p class="diary-snippet">${e.content.slice(0,60)}${e.content.length>60?"…":""}</p>
-            </div>
-          </div>`).join("")}
-      </div>
-    </div>`;
-  document.getElementById("back").onclick = renderHome;
-  document.getElementById("new-diary").onclick = renderDiaryCompose;
-  document.querySelectorAll(".diary-card").forEach(el => {
-    el.onclick = () => renderDiaryDetail(el.dataset.id);
-  });
+// ════ DIARY ════
+function renderDiaryList(){
+  app.innerHTML=`${roleBadge()}<div class="page">
+    <div class="sub-header"><button class="back-btn" id="back">← 返回</button><h2 class="sub-title">日记本</h2><div style="width:60px"></div></div>
+    <button class="fab admin-only" id="new-diary">+ 写日记</button>
+    <div class="diary-list">
+      ${diary.length===0?'<p class="empty-hint">还没有日记</p>':diary.map((e,i)=>`
+      <div class="glass diary-card" data-id="${e.id}" style="animation-delay:${i*0.06}s">
+        <div class="diary-left"><span class="diary-mood">${e.mood}</span><span class="diary-date-small">${fmtDate(e.date)}</span></div>
+        <div style="flex:1;min-width:0"><h4 class="diary-title">${e.title}</h4><p class="diary-snippet">${e.content.slice(0,60)}${e.content.length>60?"…":""}</p></div>
+      </div>`).join("")}
+    </div></div>`;
+  bindRoleBadge();
+  document.getElementById("back").onclick=renderHome;
+  const nb=document.getElementById("new-diary"); if(nb)nb.onclick=renderDiaryCompose;
+  document.querySelectorAll(".diary-card").forEach(el=>{el.onclick=()=>renderDiaryDetail(el.dataset.id);});
 }
 
-// ─── Diary Compose ───
-function renderDiaryCompose() {
-  let mood = "☀️";
-  app.innerHTML = `
-    <div class="page">
-      <div class="sub-header">
-        <button class="back-btn" id="back">← 返回</button>
-        <h2 class="sub-title">写日记</h2>
-        <div style="width:60px"></div>
-      </div>
-      <div class="glass compose-card">
-        <div class="compose-row">
-          <input type="date" class="date-input" id="d-date" value="${today()}">
-          <div class="mood-picker" id="mood-picker">
-            ${MOODS.map(m => `<span class="mood-option ${m==="☀️"?"active":""}" data-mood="${m}">${m}</span>`).join("")}
-          </div>
-        </div>
-        <input class="input-field" id="d-title" placeholder="标题…">
-        <textarea class="input-field" id="d-content" placeholder="今天发生了什么…"></textarea>
-        <div class="actions">
-          <button class="btn-ghost" id="cancel">取消</button>
-          <button class="btn-solid" id="save">保存</button>
-        </div>
-      </div>
-    </div>`;
-  document.getElementById("back").onclick = renderDiaryList;
-  document.getElementById("cancel").onclick = renderDiaryList;
-  document.querySelectorAll(".mood-option").forEach(el => {
-    el.onclick = () => {
-      mood = el.dataset.mood;
-      document.querySelectorAll(".mood-option").forEach(m => m.classList.remove("active"));
-      el.classList.add("active");
-    };
-  });
-  document.getElementById("save").onclick = () => {
-    const title = document.getElementById("d-title").value.trim();
-    const content = document.getElementById("d-content").value.trim();
-    if (!title && !content) return;
-    const entry = { id: uid(), date: document.getElementById("d-date").value, mood, title, content };
-    diary = [entry, ...diary].sort((a,b) => b.date.localeCompare(a.date));
-    save(DIARY_KEY, diary);
-    renderDiaryList();
-  };
+function renderDiaryCompose(){
+  if(!isAdmin)return;let mood="☀️";
+  app.innerHTML=`${roleBadge()}<div class="page">
+    <div class="sub-header"><button class="back-btn" id="back">← 返回</button><h2 class="sub-title">写日记</h2><div style="width:60px"></div></div>
+    <div class="glass compose-card">
+      <div class="compose-row"><input type="date" class="date-input" id="d-date" value="${today()}"><div class="mood-picker">${MOODS.map(m=>`<span class="mood-option ${m==="☀️"?"active":""}" data-mood="${m}">${m}</span>`).join("")}</div></div>
+      <input class="input-field" id="d-title" placeholder="标题…">
+      <textarea class="input-field" id="d-content" placeholder="今天发生了什么…"></textarea>
+      <div class="actions"><button class="btn-ghost" id="cancel">取消</button><button class="btn-solid" id="save">保存</button></div>
+    </div></div>`;
+  bindRoleBadge();
+  document.getElementById("back").onclick=renderDiaryList;document.getElementById("cancel").onclick=renderDiaryList;
+  document.querySelectorAll(".mood-option").forEach(el=>{el.onclick=()=>{mood=el.dataset.mood;document.querySelectorAll(".mood-option").forEach(m=>m.classList.remove("active"));el.classList.add("active");};});
+  document.getElementById("save").onclick=()=>{const t=document.getElementById("d-title").value.trim(),c=document.getElementById("d-content").value.trim();if(!t&&!c)return;diary=[{id:uid(),date:document.getElementById("d-date").value,mood,title:t,content:c},...diary].sort((a,b)=>b.date.localeCompare(a.date));save(DIARY_KEY,diary);renderDiaryList();};
 }
 
-// ─── Diary Detail ───
-function renderDiaryDetail(id) {
-  const e = diary.find(d => d.id === id);
-  if (!e) return renderDiaryList();
-  app.innerHTML = `
-    <div class="page">
-      <div class="sub-header">
-        <button class="back-btn" id="back">← 返回</button>
-        <h2 class="sub-title">日记</h2>
-        <div style="width:60px"></div>
-      </div>
-      <div class="glass compose-card">
-        <div class="detail-header">
-          <span class="detail-mood">${e.mood}</span>
-          <div>
-            <div class="detail-title">${e.title}</div>
-            <div class="detail-date">${fmtDate(e.date)}</div>
-          </div>
-        </div>
-        <p class="detail-content">${e.content}</p>
-        <div class="actions">
-          <button class="btn-ghost" id="back2">返回</button>
-          <button class="btn-ghost btn-danger" id="delete">删除</button>
-        </div>
-      </div>
-    </div>`;
-  document.getElementById("back").onclick = renderDiaryList;
-  document.getElementById("back2").onclick = renderDiaryList;
-  document.getElementById("delete").onclick = () => {
-    diary = diary.filter(d => d.id !== id);
-    save(DIARY_KEY, diary);
-    renderDiaryList();
-  };
+function renderDiaryDetail(id){
+  const e=diary.find(d=>d.id===id);if(!e)return renderDiaryList();
+  app.innerHTML=`${roleBadge()}<div class="page">
+    <div class="sub-header"><button class="back-btn" id="back">← 返回</button><h2 class="sub-title">日记</h2><div style="width:60px"></div></div>
+    <div class="glass compose-card">
+      <div class="detail-header"><span class="detail-mood">${e.mood}</span><div><div class="detail-title">${e.title}</div><div class="detail-date">${fmtDate(e.date)}</div></div></div>
+      <p class="detail-content">${e.content}</p>
+      <div class="actions"><button class="btn-ghost" id="back2">返回</button><button class="btn-ghost btn-danger admin-only" id="delete">删除</button></div>
+    </div></div>`;
+  bindRoleBadge();
+  document.getElementById("back").onclick=renderDiaryList;document.getElementById("back2").onclick=renderDiaryList;
+  const del=document.getElementById("delete");if(del)del.onclick=()=>{diary=diary.filter(d=>d.id!==id);save(DIARY_KEY,diary);renderDiaryList();};
 }
 
-// ─── Album ───
-function renderAlbum() {
-  app.innerHTML = `
-    <div class="page">
-      <div class="sub-header">
-        <button class="back-btn" id="back">← 返回</button>
-        <h2 class="sub-title">照片墙</h2>
-        <div style="width:60px"></div>
-      </div>
-      <button class="fab" id="add-photo">+ 添加照片</button>
-      <div class="glass compose-card hidden" id="add-form">
-        <input class="input-field" id="p-url" placeholder="图片链接 (URL)">
-        <input class="input-field" id="p-caption" placeholder="描述（可选）">
-        <div class="actions">
-          <button class="btn-ghost" id="cancel-photo">取消</button>
-          <button class="btn-solid" id="save-photo">添加</button>
-        </div>
-      </div>
-      <div class="album-grid" id="album-grid">
-        ${photos.map((p,i) => `
-        <div class="album-item" data-id="${p.id}" style="animation-delay:${i*0.05}s">
-          <img src="${p.src}" alt="${p.caption}">
-          <div class="album-overlay">
-            <span class="album-caption">${p.caption}</span>
-          </div>
-        </div>`).join("")}
-      </div>
-    </div>`;
-  document.getElementById("back").onclick = renderHome;
-  const form = document.getElementById("add-form");
-  document.getElementById("add-photo").onclick = () => form.classList.toggle("hidden");
-  document.getElementById("cancel-photo").onclick = () => form.classList.add("hidden");
-  document.getElementById("save-photo").onclick = () => {
-    const url = document.getElementById("p-url").value.trim();
-    if (!url) return;
-    const caption = document.getElementById("p-caption").value.trim() || "未命名";
-    photos = [{ id: uid(), src: url, caption, date: today() }, ...photos];
-    save(PHOTOS_KEY, photos);
-    renderAlbum();
-  };
-  document.querySelectorAll(".album-item").forEach(el => {
-    el.onclick = () => openLightbox(el.dataset.id);
-  });
+// ════ ALBUM ════
+function renderAlbumFolders(){
+  app.innerHTML=`${roleBadge()}<div class="page">
+    <div class="sub-header"><button class="back-btn" id="back">← 返回</button><h2 class="sub-title">照片墙</h2><div style="width:60px"></div></div>
+    <button class="fab admin-only" id="new-folder">+ 新建相册</button>
+    <div class="folder-grid">
+      ${folders.map((f,i)=>`
+      <div class="glass folder-card" data-id="${f.id}" style="animation-delay:${i*0.05}s">
+        <span class="folder-icon">📁</span><div class="folder-name">${f.name}</div><div class="folder-count">${f.photos.length} 张</div>
+        <div class="folder-actions admin-only"><button class="folder-action-btn rename-btn" data-id="${f.id}">重命名</button><button class="folder-action-btn danger delete-folder-btn" data-id="${f.id}">删除</button></div>
+      </div>`).join("")}
+      ${folders.length===0?'<p class="empty-hint" style="grid-column:1/-1">还没有相册</p>':""}
+    </div></div>`;
+  bindRoleBadge();
+  document.getElementById("back").onclick=renderHome;
+  const nf=document.getElementById("new-folder");if(nf)nf.onclick=()=>showFolderModal();
+  document.querySelectorAll(".folder-card").forEach(el=>{el.onclick=(e)=>{if(e.target.classList.contains("rename-btn")||e.target.classList.contains("delete-folder-btn"))return;renderFolderPhotos(el.dataset.id);};});
+  document.querySelectorAll(".rename-btn").forEach(el=>{el.onclick=(e)=>{e.stopPropagation();if(isAdmin)showFolderModal(el.dataset.id);};});
+  document.querySelectorAll(".delete-folder-btn").forEach(el=>{el.onclick=(e)=>{e.stopPropagation();if(!isAdmin)return;const f=folders.find(x=>x.id===el.dataset.id);if(f&&confirm(`确定删除「${f.name}」？`)){folders=folders.filter(x=>x.id!==el.dataset.id);save(FOLDERS_KEY,folders);renderAlbumFolders();}};});
 }
 
-function openLightbox(id) {
-  const p = photos.find(x => x.id === id);
-  if (!p) return;
-  const lb = document.createElement("div");
-  lb.className = "lightbox";
-  lb.innerHTML = `
-    <div class="glass lightbox-inner" onclick="event.stopPropagation()">
-      <img src="${p.src}" alt="${p.caption}">
-      <div class="lightbox-info">
-        <div class="lightbox-caption">${p.caption}</div>
-        <div class="lightbox-date">${fmtDate(p.date)}</div>
+function showFolderModal(editId){
+  if(!isAdmin)return;const ex=editId?folders.find(f=>f.id===editId):null;
+  const ov=document.createElement("div");ov.className="modal-overlay";
+  ov.innerHTML=`<div class="glass modal-box" onclick="event.stopPropagation()"><div class="modal-title">${ex?"重命名相册":"新建相册"}</div><input class="input-field" id="fn" placeholder="例如：韩国旅行" value="${ex?ex.name:""}"><div class="actions"><button class="btn-ghost" id="mc">取消</button><button class="btn-solid" id="mo">${ex?"保存":"创建"}</button></div></div>`;
+  document.body.appendChild(ov);ov.onclick=()=>ov.remove();const inp=ov.querySelector("#fn");inp.focus();
+  ov.querySelector("#mc").onclick=()=>ov.remove();
+  ov.querySelector("#mo").onclick=()=>{const n=inp.value.trim();if(!n)return;if(ex){ex.name=n;}else{folders.push({id:uid(),name:n,cover:"",photos:[]});}save(FOLDERS_KEY,folders);ov.remove();renderAlbumFolders();};
+  inp.onkeydown=(e)=>{if(e.key==="Enter")ov.querySelector("#mo").click();};
+}
+
+function renderFolderPhotos(fid){
+  const folder=folders.find(f=>f.id===fid);if(!folder)return renderAlbumFolders();
+  app.innerHTML=`${roleBadge()}<div class="page">
+    <div class="sub-header"><button class="back-btn" id="back">← 返回</button><h2 class="sub-title">${folder.name}</h2><div style="width:60px"></div></div>
+    ${isAdmin?`<div class="drop-zone" id="drop-zone"><span class="drop-icon">📷</span><div class="drop-text">拖拽照片到这里上传</div><div class="drop-hint">或者点击选择文件</div><input type="file" id="file-input" accept="image/*" multiple style="display:none"><div class="upload-preview" id="upload-preview"></div></div>`:""}
+    <div class="album-grid">
+      ${folder.photos.length===0?'<p class="empty-hint" style="grid-column:1/-1">还没有照片</p>':
+        folder.photos.map((p,i)=>`<div class="album-item" data-id="${p.id}" style="animation-delay:${i*0.05}s"><img src="${p.src}" alt="${p.caption}"><div class="album-overlay"><span class="album-caption">${p.caption}</span></div></div>`).join("")}
+    </div></div>`;
+  bindRoleBadge();
+  document.getElementById("back").onclick=renderAlbumFolders;
+  if(isAdmin){
+    const dz=document.getElementById("drop-zone"),fi=document.getElementById("file-input"),pv=document.getElementById("upload-preview");
+    dz.onclick=(e)=>{if(e.target===dz||e.target.classList.contains("drop-icon")||e.target.classList.contains("drop-text")||e.target.classList.contains("drop-hint"))fi.click();};
+    dz.ondragover=(e)=>{e.preventDefault();dz.classList.add("drag-over");};
+    dz.ondragleave=(e)=>{e.preventDefault();dz.classList.remove("drag-over");};
+    dz.ondrop=async(e)=>{e.preventDefault();dz.classList.remove("drag-over");const fs=[...e.dataTransfer.files].filter(f=>f.type.startsWith("image/"));if(fs.length)await proc(fs);};
+    fi.onchange=async()=>{const fs=[...fi.files].filter(f=>f.type.startsWith("image/"));if(fs.length)await proc(fs);};
+    async function proc(files){dz.querySelector(".drop-text").textContent=`正在处理 ${files.length} 张…`;pv.innerHTML="";for(const f of files){try{const b=await fileToBase64(f);folder.photos.unshift({id:uid(),src:b,caption:f.name.replace(/\.[^.]+$/,""),date:today()});const img=document.createElement("img");img.src=b;img.className="upload-thumb";pv.appendChild(img);}catch(e){}}save(FOLDERS_KEY,folders);setTimeout(()=>renderFolderPhotos(fid),600);}
+  }
+  document.querySelectorAll(".album-item").forEach(el=>{el.onclick=()=>openLightbox(fid,el.dataset.id);});
+}
+
+function openLightbox(fid,pid){
+  const folder=folders.find(f=>f.id===fid);if(!folder)return;const p=folder.photos.find(x=>x.id===pid);if(!p)return;
+  const lb=document.createElement("div");lb.className="lightbox";
+  lb.innerHTML=`<div class="glass lightbox-inner" onclick="event.stopPropagation()"><img src="${p.src}" alt="${p.caption}"><div class="lightbox-info"><div class="lightbox-caption">${p.caption}</div><div class="lightbox-date">${fmtDate(p.date)}</div></div><div class="actions" style="padding:0 22px 18px"><button class="btn-ghost" id="lb-close">关闭</button>${isAdmin?'<button class="btn-ghost btn-danger" id="lb-del">删除</button>':""}</div></div>`;
+  document.body.appendChild(lb);lb.onclick=()=>lb.remove();
+  lb.querySelector("#lb-close").onclick=()=>lb.remove();
+  const del=lb.querySelector("#lb-del");if(del)del.onclick=()=>{folder.photos=folder.photos.filter(x=>x.id!==pid);save(FOLDERS_KEY,folders);lb.remove();renderFolderPhotos(fid);};
+}
+
+// ════ WISHES ════
+function renderWishes(filterCat="all"){
+  const filtered=filterCat==="all"?wishes:wishes.filter(w=>w.cat===filterCat);
+  const dc=wishes.filter(w=>w.done).length,pct=wishes.length?Math.round(dc/wishes.length*100):0;
+  app.innerHTML=`${roleBadge()}<div class="page">
+    <div class="sub-header"><button class="back-btn" id="back">← 返回</button><h2 class="sub-title">心愿清单</h2><div style="width:60px"></div></div>
+    <div class="wish-progress-section"><div class="wish-progress-label">完成进度</div><div class="wish-progress-bar"><div class="wish-progress-fill" style="width:${pct}%"></div></div><div class="wish-stats"><span class="wish-stat"><strong>${dc}</strong> 已完成</span><span class="wish-stat"><strong>${wishes.length-dc}</strong> 进行中</span><span class="wish-stat"><strong>${pct}%</strong></span></div></div>
+    <button class="fab admin-only" id="new-wish">+ 许一个愿望</button>
+    <div class="wish-tabs">${WISH_CATS.map(c=>`<button class="wish-tab ${filterCat===c.key?"active":""}" data-cat="${c.key}">${c.emoji} ${c.label}</button>`).join("")}</div>
+    <div class="wish-list">
+      ${filtered.length===0?'<p class="empty-hint">这个分类还没有心愿</p>':filtered.map((w,i)=>{const cat=WISH_CATS.find(c=>c.key===w.cat);return`
+      <div class="glass wish-card" data-id="${w.id}" style="animation-delay:${i*0.05}s">
+        <div class="wish-check ${w.done?"done":""} ${isAdmin?"":""}" data-id="${w.id}">${w.done?"✓":""}</div>
+        <div class="wish-body">
+          <div class="wish-title-row"><span class="wish-title ${w.done?"done-text":""}">${w.title}</span><span class="wish-cat-badge">${cat?cat.emoji:""} ${cat?cat.label:""}</span></div>
+          ${w.note?`<div class="wish-note">${w.note}</div>`:""}
+          <div class="wish-meta"><span class="wish-stars">${starsStr(w.stars)}</span><span class="wish-date">${fmtDate(w.date)}</span>${w.deadline?`<span class="wish-deadline">🎯 ${fmtDate(w.deadline)}</span>`:""}</div>
+        </div>
+      </div>`;}).join("")}
+    </div></div>`;
+  bindRoleBadge();
+  document.getElementById("back").onclick=renderHome;
+  const nw=document.getElementById("new-wish");if(nw)nw.onclick=renderWishCompose;
+  document.querySelectorAll(".wish-tab").forEach(el=>{el.onclick=()=>renderWishes(el.dataset.cat);});
+  document.querySelectorAll(".wish-check").forEach(el=>{el.onclick=(e)=>{e.stopPropagation();if(!isAdmin)return;const w=wishes.find(x=>x.id===el.dataset.id);if(w){w.done=!w.done;save(WISHES_KEY,wishes);renderWishes(filterCat);}};});
+  document.querySelectorAll(".wish-card").forEach(el=>{el.onclick=(e)=>{if(e.target.classList.contains("wish-check"))return;renderWishDetail(el.dataset.id,filterCat);};});
+}
+
+function renderWishCompose(){
+  if(!isAdmin)return;let stars=2;
+  app.innerHTML=`${roleBadge()}<div class="page">
+    <div class="sub-header"><button class="back-btn" id="back">← 返回</button><h2 class="sub-title">许一个愿望</h2><div style="width:60px"></div></div>
+    <div class="glass compose-card">
+      <input class="input-field" id="w-title" placeholder="你的心愿是…">
+      <textarea class="input-field" id="w-note" placeholder="备注（可选）" style="min-height:80px"></textarea>
+      <div class="compose-row">
+        <select class="input-field" id="w-cat" style="width:auto;margin-bottom:0;padding:8px 12px;font-size:13px">${WISH_CATS.filter(c=>c.key!=="all").map(c=>`<option value="${c.key}">${c.emoji} ${c.label}</option>`).join("")}</select>
+        <div class="star-picker">${[1,2,3].map(n=>`<span class="star-pick ${n<=2?"lit":""}" data-n="${n}">★</span>`).join("")}</div>
       </div>
-      <div class="actions" style="padding:0 22px 18px">
-        <button class="btn-ghost" id="lb-close">关闭</button>
-        <button class="btn-ghost btn-danger" id="lb-delete">删除</button>
+      <div class="compose-row"><span style="font-size:13px;color:#9a85a0">目标日期</span><input type="date" class="date-input" id="w-dl" value=""></div>
+      <div class="actions"><button class="btn-ghost" id="cancel">取消</button><button class="btn-solid" id="save">许愿 ✨</button></div>
+    </div></div>`;
+  bindRoleBadge();
+  document.getElementById("back").onclick=()=>renderWishes();document.getElementById("cancel").onclick=()=>renderWishes();
+  document.querySelectorAll(".star-pick").forEach(el=>{el.onclick=()=>{stars=parseInt(el.dataset.n);document.querySelectorAll(".star-pick").forEach((s,i)=>{s.classList.toggle("lit",i<stars);});};});
+  document.getElementById("save").onclick=()=>{const t=document.getElementById("w-title").value.trim();if(!t)return;wishes=[{id:uid(),title:t,note:document.getElementById("w-note").value.trim(),cat:document.getElementById("w-cat").value,stars,done:false,date:today(),deadline:document.getElementById("w-dl").value},...wishes];save(WISHES_KEY,wishes);renderWishes();};
+}
+
+function renderWishDetail(id,fromCat){
+  const w=wishes.find(x=>x.id===id);if(!w)return renderWishes();const cat=WISH_CATS.find(c=>c.key===w.cat);
+  app.innerHTML=`${roleBadge()}<div class="page">
+    <div class="sub-header"><button class="back-btn" id="back">← 返回</button><h2 class="sub-title">心愿详情</h2><div style="width:60px"></div></div>
+    <div class="glass compose-card">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid rgba(140,90,160,0.1)">
+        <span style="font-size:28px">${cat?cat.emoji:"✦"}</span>
+        <div><div style="font-size:20px;color:#3a2a3e;${w.done?"text-decoration:line-through;color:#b0a0b5;":""}">${w.title}</div><div style="font-size:12px;color:#9a85a0;margin-top:4px">${cat?cat.label:""}　·　${fmtDate(w.date)}　·　<span class="wish-stars">${starsStr(w.stars)}</span></div></div>
       </div>
-    </div>`;
-  document.body.appendChild(lb);
-  lb.onclick = () => lb.remove();
-  lb.querySelector("#lb-close").onclick = () => lb.remove();
-  lb.querySelector("#lb-delete").onclick = () => {
-    photos = photos.filter(x => x.id !== id);
-    save(PHOTOS_KEY, photos);
-    lb.remove();
-    renderAlbum();
-  };
+      ${w.note?`<p style="font-size:15px;line-height:2;color:#5a4560;margin-bottom:16px">${w.note}</p>`:""}
+      ${w.deadline?`<p style="font-size:13px;color:#c09070;margin-bottom:16px">🎯 目标：${fmtDate(w.deadline)}</p>`:""}
+      <p style="font-size:13px;color:#9a85a0;margin-bottom:8px">状态：${w.done?"✅ 已完成":"⏳ 进行中"}</p>
+      <div class="actions">
+        <button class="btn-ghost" id="back2">返回</button>
+        ${isAdmin?`<button class="btn-solid" id="toggle">${w.done?"标为未完成":"完成 ✓"}</button><button class="btn-ghost btn-danger" id="delete">删除</button>`:""}
+      </div>
+    </div></div>`;
+  bindRoleBadge();
+  document.getElementById("back").onclick=()=>renderWishes(fromCat);document.getElementById("back2").onclick=()=>renderWishes(fromCat);
+  const tog=document.getElementById("toggle");if(tog)tog.onclick=()=>{w.done=!w.done;save(WISHES_KEY,wishes);renderWishDetail(id,fromCat);};
+  const del=document.getElementById("delete");if(del)del.onclick=()=>{wishes=wishes.filter(x=>x.id!==id);save(WISHES_KEY,wishes);renderWishes(fromCat);};
 }
 
 // ─── Start ───
-renderHome();
+if(isUnlocked) renderHome();
 </script>
 </body>
 </html>
