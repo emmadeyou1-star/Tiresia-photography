@@ -429,22 +429,42 @@ function starsStr(n){return"★".repeat(n)+"☆".repeat(3-n);}
 function rndQuote(){return QUOTES[Math.floor(Math.random()*QUOTES.length)];}
 
 // R2 API helpers
-async function r2Fetch(path,opts={}){
-  const headers={...opts.headers||{}};
-  if(isAdmin) headers["X-Password"]=ADMIN_PASS;
-  return fetch(API_URL+path,{...opts,headers});
+async function r2Fetch(path, opts) {
+  opts = opts || {};
+  var hdrs = {};
+  // Copy existing headers
+  if (opts.headers) {
+    var src = opts.headers;
+    if (src instanceof Headers) {
+      src.forEach(function(v,k){ hdrs[k] = v; });
+    } else {
+      for (var k in src) hdrs[k] = src[k];
+    }
+  }
+  if (isAdmin) hdrs["X-Password"] = ADMIN_PASS;
+  var fetchOpts = {method: opts.method || "GET", headers: hdrs};
+  if (opts.body) fetchOpts.body = opts.body;
+  return fetch(API_URL + path, fetchOpts);
 }
 async function r2ListFolders(){
-  try{const r=await r2Fetch("/folders");return await r.json();}catch{return[];}
+  try{const r=await r2Fetch("/folders");return await r.json();}catch(e){console.error("r2ListFolders error:",e);return[];}
 }
 async function r2ListPhotos(folder){
-  try{const r=await r2Fetch("/list/"+encodeURIComponent(folder));return await r.json();}catch{return[];}
+  try{const r=await r2Fetch("/list/"+encodeURIComponent(folder));return await r.json();}catch(e){console.error("r2ListPhotos error:",e);return[];}
 }
-async function r2Upload(folder,file){
-  const name=uid()+"_"+file.name.replace(/[^a-zA-Z0-9._-]/g,"_");
-  const key=encodeURIComponent(folder)+"/"+name;
-  await r2Fetch("/upload/"+key,{method:"PUT",body:file,headers:{"Content-Type":file.type}});
-  return{key:decodeURIComponent(key),url:R2_PUBLIC+"/"+key,name:file.name.replace(/\.[^.]+$/,"")};
+async function r2Upload(folder, file){
+  const safeName = uid() + "_" + file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+  const key = encodeURIComponent(folder) + "/" + safeName;
+  const resp = await r2Fetch("/upload/" + key, {
+    method: "PUT",
+    body: file,
+    headers: {"Content-Type": file.type || "image/jpeg"}
+  });
+  if (!resp.ok) {
+    const txt = await resp.text();
+    throw new Error("Upload failed: " + resp.status + " " + txt);
+  }
+  return {key: decodeURIComponent(key), url: R2_PUBLIC + "/" + key, name: file.name.replace(/\.[^.]+$/, "")};
 }
 async function r2Delete(key){
   await r2Fetch("/delete/"+encodeURIComponent(key),{method:"DELETE"});
