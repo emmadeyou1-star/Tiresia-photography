@@ -331,8 +331,8 @@
 // ═══════════════════════════════════
 // PASSWORD CONFIG — 修改这里设置你的密码
 // ═══════════════════════════════════
-const VISITOR_PASS = "8888";       // 访客密码（只能看）
-const ADMIN_PASS = "6868";     // 管理密码（可以编辑）
+const VISITOR_PASS = "tiresia";       // 访客密码（只能看）
+const ADMIN_PASS = "tiresia2026";     // 管理密码（可以编辑）
 
 // ─── Auth state ───
 let isAdmin = false;
@@ -351,7 +351,7 @@ if (session === "admin" || session === "visitor") {
   isAdmin = session === "admin";
   lockScreen.style.display = "none";
   if (isAdmin) document.body.classList.add("is-admin");
-  renderHome();
+  init();
 }
 
 lockBtn.onclick = tryUnlock;
@@ -364,13 +364,13 @@ function tryUnlock() {
     document.body.classList.add("is-admin");
     sessionStorage.setItem("tiresia_role", "admin");
     lockScreen.style.display = "none";
-    renderHome();
+    init();
   } else if (val === VISITOR_PASS) {
     isAdmin = false; isUnlocked = true;
     document.body.classList.remove("is-admin");
     sessionStorage.setItem("tiresia_role", "visitor");
     lockScreen.style.display = "none";
-    renderHome();
+    init();
   } else {
     lockError.textContent = "密码不正确，请重试";
     lockInput.value = "";
@@ -390,7 +390,6 @@ function logout() {
 
 // ─── Data ───
 const DIARY_KEY = "tiresia_diary";
-const FOLDERS_KEY = "tiresia_folders";
 const WISHES_KEY = "tiresia_wishes";
 
 const SEED_DIARY = [
@@ -398,16 +397,10 @@ const SEED_DIARY = [
   { id:"d2", date:"2026-03-16", mood:"🌧️", title:"读了一本好书", content:"下雨天待在家里，读完了《小王子》。每次读都有不同的感受，大人的世界真的很奇怪。" },
   { id:"d3", date:"2026-03-15", mood:"🌙", title:"深夜想法", content:"夜深了还是睡不着，想了很多关于未来的事情。不过明天又是新的一天。" },
 ];
-const SEED_FOLDERS = [
-  { id:"f1", name:"日常随拍", cover:"", photos:[
-    { id:"p1", src:"https://picsum.photos/600/400?random=11", caption:"午后的光", date:"2026-03-17" },
-    { id:"p2", src:"https://picsum.photos/400/600?random=22", caption:"街角咖啡店", date:"2026-03-16" },
-  ]},
-  { id:"f2", name:"旅行记忆", cover:"", photos:[
-    { id:"p4", src:"https://picsum.photos/400/500?random=44", caption:"老巷子", date:"2026-03-14" },
-    { id:"p5", src:"https://picsum.photos/600/400?random=55", caption:"雨后", date:"2026-03-13" },
-  ]},
-];
+// ─── R2 Cloud Storage Config ───
+const API_URL = "https://tiresia-api.emmadeyou1.workers.dev";
+const R2_PUBLIC = "https://pub-a21ec0f1c3eb4d91a3e3dc539347d72e.r2.dev";
+const SEED_FOLDERS_META = ["日常随拍","旅行记忆"];
 const WISH_CATS = [
   { key:"all", label:"全部", emoji:"✦" },
   { key:"travel", label:"旅行", emoji:"✈️" },
@@ -432,14 +425,48 @@ function save(k,d){try{localStorage.setItem(k,JSON.stringify(d));}catch(e){conso
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
 function fmtDate(d){const dt=new Date(d+"T00:00:00");return`${dt.getMonth()+1}月${dt.getDate()}日`;}
 function today(){return new Date().toISOString().slice(0,10);}
-function fileToBase64(f){return new Promise((r,j)=>{const x=new FileReader();x.onload=()=>r(x.result);x.onerror=()=>j();x.readAsDataURL(f);});}
-function totalPhotos(){return folders.reduce((s,f)=>s+f.photos.length,0);}
-function allPhotosFlat(){return folders.flatMap(f=>f.photos);}
 function starsStr(n){return"★".repeat(n)+"☆".repeat(3-n);}
 function rndQuote(){return QUOTES[Math.floor(Math.random()*QUOTES.length)];}
 
+// R2 API helpers
+async function r2Fetch(path,opts={}){
+  const headers={...opts.headers||{}};
+  if(isAdmin) headers["X-Password"]=ADMIN_PASS;
+  return fetch(API_URL+path,{...opts,headers});
+}
+async function r2ListFolders(){
+  try{const r=await r2Fetch("/folders");return await r.json();}catch{return[];}
+}
+async function r2ListPhotos(folder){
+  try{const r=await r2Fetch("/list/"+encodeURIComponent(folder));return await r.json();}catch{return[];}
+}
+async function r2Upload(folder,file){
+  const name=uid()+"_"+file.name.replace(/[^a-zA-Z0-9._-]/g,"_");
+  const key=encodeURIComponent(folder)+"/"+name;
+  await r2Fetch("/upload/"+key,{method:"PUT",body:file,headers:{"Content-Type":file.type}});
+  return{key:decodeURIComponent(key),url:R2_PUBLIC+"/"+key,name:file.name.replace(/\.[^.]+$/,"")};
+}
+async function r2Delete(key){
+  await r2Fetch("/delete/"+encodeURIComponent(key),{method:"DELETE"});
+}
+
+// Folder metadata (names stored locally, photos in R2)
+const FOLDERS_META_KEY="tiresia_folders_meta";
+let folderNames=load(FOLDERS_META_KEY,SEED_FOLDERS_META);
+
+// Count cache
+let folderCounts={};
+async function refreshFolderCounts(){
+  folderCounts={};let total=0;
+  for(const name of folderNames){
+    const photos=await r2ListPhotos(name);
+    folderCounts[name]=photos.length;
+    total+=photos.length;
+  }
+  return total;
+}
+
 let diary=load(DIARY_KEY,SEED_DIARY);
-let folders=load(FOLDERS_KEY,SEED_FOLDERS);
 let wishes=load(WISHES_KEY,SEED_WISHES);
 const app=document.getElementById("app");
 
@@ -450,8 +477,9 @@ function roleBadge(){
 function bindRoleBadge(){ document.getElementById("role-badge").onclick=logout; }
 
 // ════ HOME ════
-function renderHome(){
-  const latest=diary[0];const preview=allPhotosFlat().slice(0,3);
+async function renderHome(){
+  const latest=diary[0];
+  const totalP=Object.values(folderCounts).reduce((s,n)=>s+n,0);
   const wd=wishes.filter(w=>w.done).length,wt=wishes.length,wp=wt?Math.round(wd/wt*100):0;
   app.innerHTML=`${roleBadge()}
     <div class="page">
@@ -469,8 +497,7 @@ function renderHome(){
           <div class="card-arrow">→</div>
         </div>
         <div class="glass home-card" id="go-album">
-          <div class="card-top"><div class="card-label"><span class="card-emoji">◻</span>照片墙</div><div class="card-count">${folders.length} 相册 · ${totalPhotos()} 张</div></div>
-          <div class="photo-strip">${preview.map(p=>`<img src="${p.src}" alt="">`).join("")}</div>
+          <div class="card-top"><div class="card-label"><span class="card-emoji">◻</span>照片墙</div><div class="card-count">${folderNames.length} 相册 · ${totalP} 张</div></div>
           <div class="card-arrow">→</div>
         </div>
         <div class="glass home-card" id="go-wishes">
@@ -537,66 +564,150 @@ function renderDiaryDetail(id){
 }
 
 // ════ ALBUM ════
-function renderAlbumFolders(){
+async function renderAlbumFolders(){
   app.innerHTML=`${roleBadge()}<div class="page">
     <div class="sub-header"><button class="back-btn" id="back">← 返回</button><h2 class="sub-title">照片墙</h2><div style="width:60px"></div></div>
     <button class="fab admin-only" id="new-folder">+ 新建相册</button>
-    <div class="folder-grid">
-      ${folders.map((f,i)=>`
-      <div class="glass folder-card" data-id="${f.id}" style="animation-delay:${i*0.05}s">
-        <span class="folder-icon">📁</span><div class="folder-name">${f.name}</div><div class="folder-count">${f.photos.length} 张</div>
-        <div class="folder-actions admin-only"><button class="folder-action-btn rename-btn" data-id="${f.id}">重命名</button><button class="folder-action-btn danger delete-folder-btn" data-id="${f.id}">删除</button></div>
-      </div>`).join("")}
-      ${folders.length===0?'<p class="empty-hint" style="grid-column:1/-1">还没有相册</p>':""}
-    </div></div>`;
+    <p style="text-align:center;color:#b0a0b5;font-size:13px;margin:20px 0">加载中…</p>
+  </div>`;
   bindRoleBadge();
   document.getElementById("back").onclick=renderHome;
   const nf=document.getElementById("new-folder");if(nf)nf.onclick=()=>showFolderModal();
-  document.querySelectorAll(".folder-card").forEach(el=>{el.onclick=(e)=>{if(e.target.classList.contains("rename-btn")||e.target.classList.contains("delete-folder-btn"))return;renderFolderPhotos(el.dataset.id);};});
-  document.querySelectorAll(".rename-btn").forEach(el=>{el.onclick=(e)=>{e.stopPropagation();if(isAdmin)showFolderModal(el.dataset.id);};});
-  document.querySelectorAll(".delete-folder-btn").forEach(el=>{el.onclick=(e)=>{e.stopPropagation();if(!isAdmin)return;const f=folders.find(x=>x.id===el.dataset.id);if(f&&confirm(`确定删除「${f.name}」？`)){folders=folders.filter(x=>x.id!==el.dataset.id);save(FOLDERS_KEY,folders);renderAlbumFolders();}};});
+
+  // Load folder counts
+  await refreshFolderCounts();
+
+  // Re-render with data
+  const grid=document.querySelector(".page");
+  if(!grid)return;
+  const loadingP=grid.querySelector("p");
+  if(loadingP)loadingP.remove();
+
+  const folderHTML=folderNames.length===0?'<p class="empty-hint" style="grid-column:1/-1">还没有相册，创建一个吧</p>':
+    folderNames.map((name,i)=>`
+    <div class="glass folder-card" data-name="${name}" style="animation-delay:${i*0.05}s">
+      <span class="folder-icon">📁</span>
+      <div class="folder-name">${name}</div>
+      <div class="folder-count">${folderCounts[name]||0} 张</div>
+      <div class="folder-actions admin-only">
+        <button class="folder-action-btn rename-btn" data-name="${name}">重命名</button>
+        <button class="folder-action-btn danger delete-folder-btn" data-name="${name}">删除</button>
+      </div>
+    </div>`).join("");
+
+  const gridDiv=document.createElement("div");
+  gridDiv.className="folder-grid";
+  gridDiv.innerHTML=folderHTML;
+  grid.appendChild(gridDiv);
+
+  document.querySelectorAll(".folder-card").forEach(el=>{
+    el.onclick=(e)=>{if(e.target.classList.contains("rename-btn")||e.target.classList.contains("delete-folder-btn"))return;renderFolderPhotos(el.dataset.name);};
+  });
+  document.querySelectorAll(".rename-btn").forEach(el=>{
+    el.onclick=(e)=>{e.stopPropagation();if(isAdmin)showFolderModal(el.dataset.name);};
+  });
+  document.querySelectorAll(".delete-folder-btn").forEach(el=>{
+    el.onclick=async(e)=>{
+      e.stopPropagation();if(!isAdmin)return;
+      const name=el.dataset.name;
+      if(!confirm(`确定删除「${name}」及其中所有照片？`))return;
+      // Delete all photos in folder from R2
+      const photos=await r2ListPhotos(name);
+      for(const p of photos){await r2Delete(p.key);}
+      folderNames=folderNames.filter(n=>n!==name);
+      save(FOLDERS_META_KEY,folderNames);
+      renderAlbumFolders();
+    };
+  });
 }
 
-function showFolderModal(editId){
-  if(!isAdmin)return;const ex=editId?folders.find(f=>f.id===editId):null;
+function showFolderModal(editName){
+  if(!isAdmin)return;
   const ov=document.createElement("div");ov.className="modal-overlay";
-  ov.innerHTML=`<div class="glass modal-box" onclick="event.stopPropagation()"><div class="modal-title">${ex?"重命名相册":"新建相册"}</div><input class="input-field" id="fn" placeholder="例如：韩国旅行" value="${ex?ex.name:""}"><div class="actions"><button class="btn-ghost" id="mc">取消</button><button class="btn-solid" id="mo">${ex?"保存":"创建"}</button></div></div>`;
-  document.body.appendChild(ov);ov.onclick=()=>ov.remove();const inp=ov.querySelector("#fn");inp.focus();
+  ov.innerHTML=`<div class="glass modal-box" onclick="event.stopPropagation()"><div class="modal-title">${editName?"重命名相册":"新建相册"}</div><input class="input-field" id="fn" placeholder="例如：韩国旅行" value="${editName||""}"><div class="actions"><button class="btn-ghost" id="mc">取消</button><button class="btn-solid" id="mo">${editName?"保存":"创建"}</button></div></div>`;
+  document.body.appendChild(ov);ov.onclick=()=>ov.remove();
+  const inp=ov.querySelector("#fn");inp.focus();
   ov.querySelector("#mc").onclick=()=>ov.remove();
-  ov.querySelector("#mo").onclick=()=>{const n=inp.value.trim();if(!n)return;if(ex){ex.name=n;}else{folders.push({id:uid(),name:n,cover:"",photos:[]});}save(FOLDERS_KEY,folders);ov.remove();renderAlbumFolders();};
+  ov.querySelector("#mo").onclick=()=>{
+    const n=inp.value.trim();if(!n)return;
+    if(editName){
+      const idx=folderNames.indexOf(editName);
+      if(idx>=0)folderNames[idx]=n;
+    }else{
+      if(!folderNames.includes(n))folderNames.push(n);
+    }
+    save(FOLDERS_META_KEY,folderNames);
+    ov.remove();renderAlbumFolders();
+  };
   inp.onkeydown=(e)=>{if(e.key==="Enter")ov.querySelector("#mo").click();};
 }
 
-function renderFolderPhotos(fid){
-  const folder=folders.find(f=>f.id===fid);if(!folder)return renderAlbumFolders();
+async function renderFolderPhotos(folderName){
   app.innerHTML=`${roleBadge()}<div class="page">
-    <div class="sub-header"><button class="back-btn" id="back">← 返回</button><h2 class="sub-title">${folder.name}</h2><div style="width:60px"></div></div>
-    ${isAdmin?`<div class="drop-zone" id="drop-zone"><span class="drop-icon">📷</span><div class="drop-text">拖拽照片到这里上传</div><div class="drop-hint">或者点击选择文件</div><input type="file" id="file-input" accept="image/*" multiple style="display:none"><div class="upload-preview" id="upload-preview"></div></div>`:""}
-    <div class="album-grid">
-      ${folder.photos.length===0?'<p class="empty-hint" style="grid-column:1/-1">还没有照片</p>':
-        folder.photos.map((p,i)=>`<div class="album-item" data-id="${p.id}" style="animation-delay:${i*0.05}s"><img src="${p.src}" alt="${p.caption}"><div class="album-overlay"><span class="album-caption">${p.caption}</span></div></div>`).join("")}
-    </div></div>`;
+    <div class="sub-header"><button class="back-btn" id="back">← 返回</button><h2 class="sub-title">${folderName}</h2><div style="width:60px"></div></div>
+    ${isAdmin?`<div class="drop-zone" id="drop-zone"><span class="drop-icon">📷</span><div class="drop-text">拖拽照片到这里上传</div><div class="drop-hint">或者点击选择文件 · 照片存储在云端，不占浏览器空间</div><input type="file" id="file-input" accept="image/*" multiple style="display:none"><div class="upload-preview" id="upload-preview"></div></div>`:""}
+    <div class="album-grid" id="album-grid"><p style="text-align:center;color:#b0a0b5;font-size:13px;grid-column:1/-1">加载中…</p></div>
+  </div>`;
   bindRoleBadge();
   document.getElementById("back").onclick=renderAlbumFolders;
+
+  // Load photos from R2
+  const photos=await r2ListPhotos(folderName);
+  const gridEl=document.getElementById("album-grid");
+
+  if(photos.length===0){
+    gridEl.innerHTML='<p class="empty-hint" style="grid-column:1/-1">还没有照片，拖拽上传吧</p>';
+  }else{
+    gridEl.innerHTML=photos.map((p,i)=>{
+      const name=p.key.split("/").pop().replace(/^[a-z0-9]+_/,"").replace(/\.[^.]+$/,"").replace(/_/g," ");
+      return`<div class="album-item" data-key="${p.key}" data-url="${p.url}" data-name="${name}" style="animation-delay:${i*0.05}s">
+        <img src="${p.url}" alt="${name}" loading="lazy">
+        <div class="album-overlay"><span class="album-caption">${name}</span></div>
+      </div>`;
+    }).join("");
+  }
+
+  // Setup drag & drop upload
   if(isAdmin){
     const dz=document.getElementById("drop-zone"),fi=document.getElementById("file-input"),pv=document.getElementById("upload-preview");
     dz.onclick=(e)=>{if(e.target===dz||e.target.classList.contains("drop-icon")||e.target.classList.contains("drop-text")||e.target.classList.contains("drop-hint"))fi.click();};
     dz.ondragover=(e)=>{e.preventDefault();dz.classList.add("drag-over");};
     dz.ondragleave=(e)=>{e.preventDefault();dz.classList.remove("drag-over");};
-    dz.ondrop=async(e)=>{e.preventDefault();dz.classList.remove("drag-over");const fs=[...e.dataTransfer.files].filter(f=>f.type.startsWith("image/"));if(fs.length)await proc(fs);};
-    fi.onchange=async()=>{const fs=[...fi.files].filter(f=>f.type.startsWith("image/"));if(fs.length)await proc(fs);};
-    async function proc(files){dz.querySelector(".drop-text").textContent=`正在处理 ${files.length} 张…`;pv.innerHTML="";for(const f of files){try{const b=await fileToBase64(f);folder.photos.unshift({id:uid(),src:b,caption:f.name.replace(/\.[^.]+$/,""),date:today()});const img=document.createElement("img");img.src=b;img.className="upload-thumb";pv.appendChild(img);}catch(e){}}save(FOLDERS_KEY,folders);setTimeout(()=>renderFolderPhotos(fid),600);}
+    dz.ondrop=async(e)=>{e.preventDefault();dz.classList.remove("drag-over");const fs=[...e.dataTransfer.files].filter(f=>f.type.startsWith("image/"));if(fs.length)await uploadFiles(fs,folderName);};
+    fi.onchange=async()=>{const fs=[...fi.files].filter(f=>f.type.startsWith("image/"));if(fs.length)await uploadFiles(fs,folderName);};
+
+    async function uploadFiles(files,folder){
+      const dtxt=dz.querySelector(".drop-text");
+      pv.innerHTML="";
+      let done=0;
+      for(const f of files){
+        done++;
+        dtxt.textContent=`上传中 ${done}/${files.length}…`;
+        try{
+          const result=await r2Upload(folder,f);
+          const img=document.createElement("img");
+          img.src=URL.createObjectURL(f);
+          img.className="upload-thumb";
+          pv.appendChild(img);
+        }catch(err){console.error("Upload error:",err);}
+      }
+      dtxt.textContent=`✓ ${files.length} 张上传完成`;
+      setTimeout(()=>renderFolderPhotos(folder),800);
+    }
   }
-  document.querySelectorAll(".album-item").forEach(el=>{el.onclick=()=>openLightbox(fid,el.dataset.id);});
+
+  // Lightbox
+  document.querySelectorAll(".album-item").forEach(el=>{
+    el.onclick=()=>openLightbox(folderName,el.dataset.key,el.dataset.url,el.dataset.name);
+  });
 }
 
-function openLightbox(fid,pid){
-  const folder=folders.find(f=>f.id===fid);if(!folder)return;const p=folder.photos.find(x=>x.id===pid);if(!p)return;
+function openLightbox(folderName,key,url,name){
   const lb=document.createElement("div");lb.className="lightbox";
-  lb.innerHTML=`<div class="glass lightbox-inner" onclick="event.stopPropagation()"><img src="${p.src}" alt="${p.caption}"><div class="lightbox-info"><div class="lightbox-caption">${p.caption}</div><div class="lightbox-date">${fmtDate(p.date)}</div></div><div class="actions" style="padding:0 22px 18px"><button class="btn-ghost" id="lb-close">关闭</button>${isAdmin?'<button class="btn-ghost btn-danger" id="lb-del">删除</button>':""}</div></div>`;
+  lb.innerHTML=`<div class="glass lightbox-inner" onclick="event.stopPropagation()"><img src="${url}" alt="${name}"><div class="lightbox-info"><div class="lightbox-caption">${name}</div></div><div class="actions" style="padding:0 22px 18px"><button class="btn-ghost" id="lb-close">关闭</button>${isAdmin?'<button class="btn-ghost btn-danger" id="lb-del">删除</button>':""}</div></div>`;
   document.body.appendChild(lb);lb.onclick=()=>lb.remove();
   lb.querySelector("#lb-close").onclick=()=>lb.remove();
-  const del=lb.querySelector("#lb-del");if(del)del.onclick=()=>{folder.photos=folder.photos.filter(x=>x.id!==pid);save(FOLDERS_KEY,folders);lb.remove();renderFolderPhotos(fid);};
+  const del=lb.querySelector("#lb-del");if(del)del.onclick=async()=>{await r2Delete(key);lb.remove();renderFolderPhotos(folderName);};
 }
 
 // ════ WISHES ════
@@ -671,7 +782,11 @@ function renderWishDetail(id,fromCat){
 }
 
 // ─── Start ───
-if(isUnlocked) renderHome();
+async function init(){
+  await refreshFolderCounts();
+  renderHome();
+}
+if(isUnlocked) init();
 </script>
 </body>
 </html>
